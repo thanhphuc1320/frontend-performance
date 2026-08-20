@@ -42,6 +42,6 @@ Task 1 workspace discovery verification:
 
 ```text
 pnpm install
-pnpm --filter @commerce/config exec tsc --version
+pnpm --filter @commerce/tsconfig exec tsc --version
 pnpm turbo run typecheck --dry
 ```
