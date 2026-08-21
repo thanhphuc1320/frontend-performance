@@ -60,6 +60,34 @@ critical foundation E2E gate additionally boots the API on port `4000` and the
 web app on port `3000`, then verifies `GET /health` and the root page. It does
 not include business E2E cases.
 
+To run that foundation E2E flow locally with the same commands as CI:
+
+```text
+cp .env.example .env
+docker compose -f infra/docker-compose.yml up -d --wait
+set -a
+. ./.env
+set +a
+pnpm --filter @commerce/api dev > /tmp/commerce-api.log 2>&1 &
+pnpm --filter @commerce/web dev > /tmp/commerce-web.log 2>&1 &
+for attempt in {1..30}; do
+  curl --fail --silent http://127.0.0.1:4000/health && break
+  sleep 2
+done
+curl --fail --silent http://127.0.0.1:4000/health
+for attempt in {1..30}; do
+  curl --fail --silent http://127.0.0.1:3000/ && break
+  sleep 2
+done
+curl --fail --silent http://127.0.0.1:3000/ | grep -q "Foundation"
+pnpm test:e2e
+docker compose -f infra/docker-compose.yml down -v
+```
+
+The API command uses the variables exported from `.env` and listens on port
+`4000`; the web command listens on port `3000`. Stop the background API and web
+processes after the probes and E2E command, then run the Compose cleanup command.
+
 Task 1 workspace discovery verification:
 
 ```text
