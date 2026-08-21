@@ -102,6 +102,37 @@ ID immediately after starting it, as in the CI workflow. The `terminate_tree`
 function kills each launcher and all descendants after the probes and E2E
 command, then the Compose cleanup command removes the required services.
 
+### Phase 0 Review
+
+Phase 0 foundation verification was completed on Node.js `24.7.0` and pnpm
+`10.14.0`. The clean-install quality gate passed:
+
+```text
+pnpm install --frozen-lockfile
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm test:e2e
+pnpm build
+```
+
+The local infrastructure lifecycle was also repeated twice using Docker
+Compose: start with `up -d --wait`, run `pnpm infra:migrate`,
+`pnpm infra:verify`, and `pnpm infra:rollback`, then stop with `down`. Both
+runs reached healthy PostgreSQL and Redis services, applied the empty baseline
+idempotently, passed verification, rolled back cleanly, and left no containers
+running. Docker is a local prerequisite; `.env.example` must be copied to
+`.env` for local development.
+
+The Phase 0 scope remains protected: there are no business tables, business
+endpoints, dashboard widgets, authentication flow, external credentials, or
+domain mutation logic. Generated TypeScript build metadata (`*.tsbuildinfo`)
+and build output remain ignored.
+
+The next plan boundary is **Authentication and Store Membership**, including
+fixed-role RBAC. Product, inventory, order, payment, customer, channel,
+livestream, analytics, and dashboard work remains deferred to later plans.
+
 Task 1 workspace discovery verification:
 
 ```text
