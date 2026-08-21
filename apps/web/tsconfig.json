@@ -1,0 +1,25 @@
+{
+  "extends": "../../packages/tsconfig/nextjs.json",
+  "compilerOptions": {
+    "allowJs": false,
+    "incremental": true,
+    "types": [
+      "node",
+      "vitest/globals"
+    ],
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ]
+  },
+  "include": [
+    "next-env.d.ts",
+    ".next/types/**/*.ts",
+    "**/*.ts",
+    "**/*.tsx"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}
