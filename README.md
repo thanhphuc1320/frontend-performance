@@ -83,6 +83,7 @@ terminate_tree() {
 cleanup() {
   local status=$?
   trap - EXIT
+  set +e
   if [ -n "$api_pid" ]; then terminate_tree "$api_pid"; fi
   if [ -n "$web_pid" ]; then terminate_tree "$web_pid"; fi
   docker compose -f infra/docker-compose.yml down -v
