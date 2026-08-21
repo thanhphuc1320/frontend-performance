@@ -8,7 +8,7 @@ services:
     ports:
       - "127.0.0.1:55432:5432"
     volumes:
-      - commerce-postgres-data:/var/lib/postgresql/data
+      - commerce-postgres-auth-data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d commerce"]
       interval: 5s
@@ -21,7 +21,7 @@ services:
     ports:
       - "127.0.0.1:56379:6379"
     volumes:
-      - commerce-redis-data:/data
+      - commerce-redis-auth-data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-commerce_local}", "ping"]
       interval: 5s
@@ -29,5 +29,7 @@ services:
       retries: 10
 
 volumes:
-  commerce-postgres-data:
-  commerce-redis-data:
+  commerce-postgres-auth-data:
+    name: commerce-postgres-auth-data
+  commerce-redis-auth-data:
+    name: commerce-redis-auth-data

@@ -19,6 +19,7 @@ async function postgresChecks() {
   await run('node', ['infra/postgres/migrate.mjs', 'up']);
   const client = new Client({ connectionString: databaseUrl });
   await client.connect();
+  let sentinelInserted = false;
   try {
     await client.query('SELECT 1');
     const metadataTable = await client.query("SELECT to_regclass('public.schema_migrations') AS name");
@@ -26,6 +27,7 @@ async function postgresChecks() {
     await client.query(
       "INSERT INTO schema_migrations (version) VALUES ('sentinel') ON CONFLICT (version) DO NOTHING",
     );
+    sentinelInserted = true;
     const before = await client.query('SELECT count(*)::int AS count FROM schema_migrations WHERE version = $1', ['0001']);
     if (before.rows[0].count !== 1) throw new Error('baseline migration is not recorded exactly once');
     const sentinelBefore = await client.query('SELECT count(*)::int AS count FROM schema_migrations WHERE version = $1', ['sentinel']);
@@ -41,11 +43,13 @@ async function postgresChecks() {
     if (sentinelAfter.rows[0].count !== 1) throw new Error('rollback removed an unrelated migration record');
     const tablesAfter = await client.query("SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename <> 'schema_migrations'");
     if (tablesAfter.rowCount !== 0) throw new Error('business tables exist after rollback');
-    await client.query("DELETE FROM schema_migrations WHERE version = 'sentinel'");
     await run('node', ['infra/postgres/migrate.mjs', 'up']);
     const restored = await client.query('SELECT count(*)::int AS count FROM schema_migrations WHERE version = $1', ['0001']);
     if (restored.rows[0].count !== 1) throw new Error('baseline migration was not restored');
   } finally {
+    if (sentinelInserted) {
+      await client.query("DELETE FROM schema_migrations WHERE version = 'sentinel'").catch(() => {});
+    }
     await client.end();
   }
 }
