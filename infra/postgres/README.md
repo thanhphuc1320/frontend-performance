@@ -1,6 +1,6 @@
 # Local PostgreSQL
 
-PostgreSQL runs locally through `infra/docker-compose.yml` on port `55432`, using the database `commerce`. The non-default host port avoids collisions with an existing local PostgreSQL installation. The committed defaults are for local development only and are not production credentials.
+PostgreSQL runs locally through `infra/docker-compose.yml` on loopback port `55432`, using the database `commerce` and the safe local password in `.env.example`. The non-default host port avoids collisions with an existing local PostgreSQL installation. The committed defaults are for local development only and are not production credentials.
 
 ```bash
 docker compose -f infra/docker-compose.yml up -d postgres

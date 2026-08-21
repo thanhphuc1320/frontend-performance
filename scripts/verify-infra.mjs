@@ -2,8 +2,8 @@ import pg from 'pg';
 import { createClient } from 'redis';
 import { spawn } from 'node:child_process';
 
-const databaseUrl = process.env.DATABASE_URL ?? 'postgresql://postgres@127.0.0.1:55432/commerce';
-const redisUrl = process.env.REDIS_URL ?? 'redis://127.0.0.1:56379';
+const databaseUrl = process.env.DATABASE_URL ?? 'postgresql://postgres:commerce_local@127.0.0.1:55432/commerce';
+const redisUrl = process.env.REDIS_URL ?? 'redis://:commerce_local@127.0.0.1:56379';
 const { Client } = pg;
 
 function run(command, args) {
@@ -21,13 +21,27 @@ async function postgresChecks() {
   await client.connect();
   try {
     await client.query('SELECT 1');
+    const metadataTable = await client.query("SELECT to_regclass('public.schema_migrations') AS name");
+    if (metadataTable.rows[0].name !== 'schema_migrations') throw new Error('schema_migrations table is missing');
+    await client.query(
+      "INSERT INTO schema_migrations (version) VALUES ('sentinel') ON CONFLICT (version) DO NOTHING",
+    );
     const before = await client.query('SELECT count(*)::int AS count FROM schema_migrations WHERE version = $1', ['0001']);
     if (before.rows[0].count !== 1) throw new Error('baseline migration is not recorded exactly once');
+    const sentinelBefore = await client.query('SELECT count(*)::int AS count FROM schema_migrations WHERE version = $1', ['sentinel']);
+    if (sentinelBefore.rows[0].count !== 1) throw new Error('sentinel migration record was not created');
     const tables = await client.query("SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename <> 'schema_migrations'");
     if (tables.rowCount !== 0) throw new Error('business tables exist in the empty baseline');
     await run('node', ['infra/postgres/migrate.mjs', 'down']);
+    const metadataAfter = await client.query("SELECT to_regclass('public.schema_migrations') AS name");
+    if (metadataAfter.rows[0].name !== 'schema_migrations') throw new Error('rollback removed schema_migrations');
     const after = await client.query('SELECT count(*)::int AS count FROM schema_migrations WHERE version = $1', ['0001']);
     if (after.rows[0].count !== 0) throw new Error('rollback did not remove the baseline migration record');
+    const sentinelAfter = await client.query('SELECT count(*)::int AS count FROM schema_migrations WHERE version = $1', ['sentinel']);
+    if (sentinelAfter.rows[0].count !== 1) throw new Error('rollback removed an unrelated migration record');
+    const tablesAfter = await client.query("SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename <> 'schema_migrations'");
+    if (tablesAfter.rowCount !== 0) throw new Error('business tables exist after rollback');
+    await client.query("DELETE FROM schema_migrations WHERE version = 'sentinel'");
     await run('node', ['infra/postgres/migrate.mjs', 'up']);
     const restored = await client.query('SELECT count(*)::int AS count FROM schema_migrations WHERE version = $1', ['0001']);
     if (restored.rows[0].count !== 1) throw new Error('baseline migration was not restored');

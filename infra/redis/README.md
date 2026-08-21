@@ -1,6 +1,6 @@
 # Local Redis
 
-Redis runs locally through `infra/docker-compose.yml` on port `56379` and is addressable as `redis://127.0.0.1:56379`.
+Redis runs locally through `infra/docker-compose.yml` on loopback port `56379` and requires the safe local password in `.env.example`. It is addressable as `redis://:commerce_local@127.0.0.1:56379`.
 
 ```bash
 docker compose -f infra/docker-compose.yml up -d redis

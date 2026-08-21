@@ -6,7 +6,7 @@ import pg from 'pg';
 const { Client } = pg;
 const directory = dirname(fileURLToPath(import.meta.url));
 const migrationsDirectory = join(directory, 'migrations');
-const databaseUrl = process.env.DATABASE_URL ?? 'postgresql://postgres@127.0.0.1:55432/commerce';
+const databaseUrl = process.env.DATABASE_URL ?? 'postgresql://postgres:commerce_local@127.0.0.1:55432/commerce';
 
 async function migrationFiles(direction) {
   const suffix = direction === 'up' ? '.sql' : '.down.sql';
