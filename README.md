@@ -32,6 +32,10 @@ The approved shared foundation package is `packages/tsconfig`.
 
 Copy `.env.example` to `.env` for local development. The API validates its environment before NestJS starts; keep local credentials in `.env`, which is ignored by Git.
 
+### Local Infrastructure
+
+Docker is required for the local PostgreSQL and Redis services. Start both services with `docker compose -f infra/docker-compose.yml up -d`; they use host ports `55432` and `56379` and named local volumes. Apply the empty migration baseline with `pnpm infra:migrate`, roll it back with `pnpm infra:rollback`, and verify both services with `pnpm infra:verify`. Stop services with `docker compose -f infra/docker-compose.yml down`; add `-v` to reset local data. These containers and credentials are for local development only and are not a production deployment design.
+
 ### Verification
 
 ```text

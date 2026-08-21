@@ -12,9 +12,14 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "test:e2e": "turbo run test:e2e",
-    "format:check": "turbo run format:check"
+    "format:check": "turbo run format:check",
+    "infra:migrate": "node infra/postgres/migrate.mjs up",
+    "infra:rollback": "node infra/postgres/migrate.mjs down",
+    "infra:verify": "node scripts/verify-infra.mjs"
   },
   "devDependencies": {
+    "pg": "^8.16.3",
+    "redis": "^5.8.2",
     "turbo": "^2.5.6",
     "typescript": "^5.9.2"
   }
