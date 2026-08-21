@@ -116,6 +116,7 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm build
       - run: docker compose -f infra/docker-compose.yml up -d --wait
       - run: cp .env.example .env
       - name: Start API and web

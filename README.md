@@ -69,6 +69,7 @@ To run that foundation E2E flow locally with the same commands as CI:
 
 ```text
 cp .env.example .env
+pnpm build
 docker compose -f infra/docker-compose.yml up -d --wait
 pnpm --filter @commerce/api dev > /tmp/commerce-api.log 2>&1 &
 echo $! > /tmp/commerce-api.pid
