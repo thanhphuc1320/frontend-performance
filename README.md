@@ -28,6 +28,10 @@ The approved shared foundation package is `packages/tsconfig`.
 - `pnpm test:e2e`
 - `pnpm format:check`
 
+### Environment
+
+Copy `.env.example` to `.env` for local development. The API validates its environment before NestJS starts; keep local credentials in `.env`, which is ignored by Git.
+
 ### Verification
 
 ```text
