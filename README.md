@@ -69,7 +69,9 @@ set -a
 . ./.env
 set +a
 pnpm --filter @commerce/api dev > /tmp/commerce-api.log 2>&1 &
+echo $! > /tmp/commerce-api.pid
 pnpm --filter @commerce/web dev > /tmp/commerce-web.log 2>&1 &
+echo $! > /tmp/commerce-web.pid
 for attempt in {1..30}; do
   curl --fail --silent http://127.0.0.1:4000/health && break
   sleep 2
@@ -81,12 +83,16 @@ for attempt in {1..30}; do
 done
 curl --fail --silent http://127.0.0.1:3000/ | grep -q "Foundation"
 pnpm test:e2e
+kill "$(cat /tmp/commerce-api.pid)" 2>/dev/null || true
+kill "$(cat /tmp/commerce-web.pid)" 2>/dev/null || true
 docker compose -f infra/docker-compose.yml down -v
 ```
 
 The API command uses the variables exported from `.env` and listens on port
-`4000`; the web command listens on port `3000`. Stop the background API and web
-processes after the probes and E2E command, then run the Compose cleanup command.
+`4000`; the web command listens on port `3000`. Record each background process
+ID immediately after starting it, as in the CI workflow, before running the
+probes and E2E command. Kill those processes, then run the Compose cleanup
+command.
 
 Task 1 workspace discovery verification:
 

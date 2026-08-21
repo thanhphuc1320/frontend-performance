@@ -124,7 +124,9 @@ jobs:
           . ./.env
           set +a
           pnpm --filter @commerce/api dev > /tmp/commerce-api.log 2>&1 &
+          echo $! > /tmp/commerce-api.pid
           pnpm --filter @commerce/web dev > /tmp/commerce-web.log 2>&1 &
+          echo $! > /tmp/commerce-web.pid
       - name: Wait for API and web
         run: |
           for attempt in {1..30}; do
@@ -140,6 +142,8 @@ jobs:
       - run: pnpm test:e2e
       - if: always()
         run: |
+          if [ -f /tmp/commerce-api.pid ]; then kill "$(cat /tmp/commerce-api.pid)" 2>/dev/null || true; fi
+          if [ -f /tmp/commerce-web.pid ]; then kill "$(cat /tmp/commerce-web.pid)" 2>/dev/null || true; fi
           docker compose -f infra/docker-compose.yml down -v
           if [ -f /tmp/commerce-api.log ]; then tail -n 100 /tmp/commerce-api.log; fi
           if [ -f /tmp/commerce-web.log ]; then tail -n 100 /tmp/commerce-web.log; fi
