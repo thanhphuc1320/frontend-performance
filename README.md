@@ -68,24 +68,10 @@ not include business E2E cases.
 To run that foundation E2E flow locally with the same commands as CI:
 
 ```text
-cp .env.example .env
 pnpm build
-docker compose -f infra/docker-compose.yml up -d --wait
-pnpm --filter @commerce/api dev > /tmp/commerce-api.log 2>&1 &
-echo $! > /tmp/commerce-api.pid
-pnpm --filter @commerce/web dev > /tmp/commerce-web.log 2>&1 &
-echo $! > /tmp/commerce-web.pid
-for attempt in {1..30}; do
-  curl --fail --silent http://127.0.0.1:4000/health && break
-  sleep 2
-done
-curl --fail --silent http://127.0.0.1:4000/health
-for attempt in {1..30}; do
-  curl --fail --silent http://127.0.0.1:3000/ && break
-  sleep 2
-done
-curl --fail --silent http://127.0.0.1:3000/ | grep -q "Foundation"
-pnpm test:e2e
+set -Eeuo pipefail
+api_pid=''
+web_pid=''
 terminate_tree() {
   local pid="$1"
   local child
@@ -94,16 +80,41 @@ terminate_tree() {
   done
   kill "$pid" 2>/dev/null || true
 }
-if [ -f /tmp/commerce-api.pid ]; then terminate_tree "$(cat /tmp/commerce-api.pid)"; fi
-if [ -f /tmp/commerce-web.pid ]; then terminate_tree "$(cat /tmp/commerce-web.pid)"; fi
-docker compose -f infra/docker-compose.yml down -v
+cleanup() {
+  local status=$?
+  trap - EXIT
+  if [ -n "$api_pid" ]; then terminate_tree "$api_pid"; fi
+  if [ -n "$web_pid" ]; then terminate_tree "$web_pid"; fi
+  docker compose -f infra/docker-compose.yml down -v
+  if [ -f /tmp/commerce-api.log ]; then tail -n 100 /tmp/commerce-api.log; fi
+  if [ -f /tmp/commerce-web.log ]; then tail -n 100 /tmp/commerce-web.log; fi
+  exit "$status"
+}
+trap cleanup EXIT
+cp .env.example .env
+docker compose -f infra/docker-compose.yml up -d --wait
+pnpm --filter @commerce/api dev > /tmp/commerce-api.log 2>&1 &
+api_pid=$!
+pnpm --filter @commerce/web dev > /tmp/commerce-web.log 2>&1 &
+web_pid=$!
+for attempt in {1..30}; do
+  if curl --fail --silent http://127.0.0.1:4000/health; then break; fi
+  sleep 2
+done
+curl --fail --silent http://127.0.0.1:4000/health
+for attempt in {1..30}; do
+  if curl --fail --silent http://127.0.0.1:3000/; then break; fi
+  sleep 2
+done
+curl --fail --silent http://127.0.0.1:3000/ | grep -q "Foundation"
+pnpm test:e2e
 ```
 
 The API command automatically loads `.env` and listens on port `4000`; the web
-command listens on port `3000`. Record each background process ID immediately
-after starting it, as in the CI workflow. The `terminate_tree`
-function kills each launcher and all descendants after the probes and E2E
-command, then the Compose cleanup command removes the required services.
+command listens on port `3000`. Keep startup, readiness, E2E, and cleanup in one
+shell so the background processes remain owned by the controlled lifecycle.
+The exception-safe `cleanup` trap kills each launcher and all descendants, then
+the Compose cleanup command removes the required services even after a failure.
 
 ### Phase 0 Review
 
