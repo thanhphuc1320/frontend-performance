@@ -4,6 +4,22 @@ import { RequestIdMiddleware } from './request-id.middleware';
 type TestRequest = Request & { requestId?: string };
 
 describe('RequestIdMiddleware', () => {
+  it('generates a request ID when the incoming header is an empty string', () => {
+    const request = {
+      header: () => '',
+    } as unknown as TestRequest;
+    const response = {
+      setHeader: jest.fn(),
+    };
+    const next = jest.fn();
+
+    new RequestIdMiddleware().use(request, response as unknown as Response, next as NextFunction);
+
+    expect(request.requestId).toEqual(expect.any(String));
+    expect(request.requestId).not.toHaveLength(0);
+    expect(response.setHeader).toHaveBeenCalledWith('x-request-id', request.requestId);
+  });
+
   it('generates a request ID when the incoming header is empty', () => {
     const request = {
       header: () => '   ',
