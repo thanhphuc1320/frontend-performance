@@ -3,13 +3,24 @@ import { NestFactory } from '@nestjs/core';
 import { loadApiConfig } from '@commerce/config';
 import { AppModule } from './app.module';
 
-async function bootstrap(): Promise<void> {
-  const config = loadApiConfig(process.env);
-  const app = await NestFactory.create(AppModule);
+type ApiApplication = {
+  listen: (port: number) => Promise<unknown>;
+};
+
+type CreateApplication = () => Promise<ApiApplication>;
+
+export async function bootstrap(
+  env: NodeJS.ProcessEnv = process.env,
+  createApplication: CreateApplication = () => NestFactory.create(AppModule),
+): Promise<void> {
+  const config = loadApiConfig(env);
+  const app = await createApplication();
   await app.listen(config.API_PORT);
 }
 
-void bootstrap().catch((error: unknown) => {
-  process.stderr.write(`${error instanceof Error ? error.message : 'API startup failed'}\n`);
-  process.exitCode = 1;
-});
+if (require.main === module) {
+  void bootstrap().catch((error: unknown) => {
+    process.stderr.write(`${error instanceof Error ? error.message : 'API startup failed'}\n`);
+    process.exitCode = 1;
+  });
+}
