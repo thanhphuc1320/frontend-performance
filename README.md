@@ -26,6 +26,7 @@ The approved shared foundation package is `packages/tsconfig`.
 - `pnpm typecheck`
 - `pnpm test`
 - `pnpm test:e2e`
+- `pnpm test:integration`
 - `pnpm format:check`
 
 ### Environment
@@ -38,13 +39,26 @@ Docker is required for the local PostgreSQL and Redis services. Copy `.env.examp
 
 ### Verification
 
+The CI quality gates use these same local commands:
+
 ```text
 pnpm install
 pnpm lint
 pnpm typecheck
 pnpm test
+docker compose -f infra/docker-compose.yml up -d --wait
+pnpm test:integration
+docker compose -f infra/docker-compose.yml down
+pnpm test:e2e
 pnpm build
 ```
+
+The integration test command requires the authenticated local PostgreSQL and
+Redis services to be running. CI starts those services with the repository
+compose file and waits for their health checks before running the command. The
+critical foundation E2E gate additionally boots the API on port `4000` and the
+web app on port `3000`, then verifies `GET /health` and the root page. It does
+not include business E2E cases.
 
 Task 1 workspace discovery verification:
 

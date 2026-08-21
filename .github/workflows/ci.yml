@@ -1,0 +1,145 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  CI: true
+
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.14.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+  lint:
+    needs: install
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.14.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+
+  typecheck:
+    needs: install
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.14.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+
+  unit:
+    needs: install
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.14.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+
+  integration:
+    needs: [lint, typecheck, unit]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.14.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: docker compose -f infra/docker-compose.yml up -d --wait
+      - run: pnpm test:integration
+      - if: always()
+        run: docker compose -f infra/docker-compose.yml down -v
+
+  build:
+    needs: [lint, typecheck, unit]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.14.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+
+  foundation-e2e:
+    needs: [integration, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.14.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: docker compose -f infra/docker-compose.yml up -d --wait
+      - run: cp .env.example .env
+      - name: Start API and web
+        run: |
+          set -a
+          . ./.env
+          set +a
+          pnpm --filter @commerce/api dev > /tmp/commerce-api.log 2>&1 &
+          pnpm --filter @commerce/web dev > /tmp/commerce-web.log 2>&1 &
+      - name: Wait for API and web
+        run: |
+          for attempt in {1..30}; do
+            curl --fail --silent http://127.0.0.1:4000/health && break
+            sleep 2
+          done
+          curl --fail --silent http://127.0.0.1:4000/health
+          for attempt in {1..30}; do
+            curl --fail --silent http://127.0.0.1:3000/ && break
+            sleep 2
+          done
+          curl --fail --silent http://127.0.0.1:3000/ | grep -q "Foundation"
+      - run: pnpm test:e2e
+      - if: always()
+        run: |
+          docker compose -f infra/docker-compose.yml down -v
+          if [ -f /tmp/commerce-api.log ]; then tail -n 100 /tmp/commerce-api.log; fi
+          if [ -f /tmp/commerce-web.log ]; then tail -n 100 /tmp/commerce-web.log; fi

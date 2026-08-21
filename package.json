@@ -12,6 +12,7 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "test:e2e": "turbo run test:e2e",
+    "test:integration": "pnpm infra:verify",
     "format:check": "turbo run format:check",
     "infra:migrate": "node infra/postgres/migrate.mjs up",
     "infra:rollback": "node infra/postgres/migrate.mjs down",
