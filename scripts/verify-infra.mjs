@@ -1,6 +1,7 @@
 import pg from 'pg';
 import { createClient } from 'redis';
 import { spawn } from 'node:child_process';
+import './load-env.cjs';
 
 const databaseUrl = process.env.DATABASE_URL ?? 'postgresql://postgres:commerce_local@127.0.0.1:55432/commerce';
 const redisUrl = process.env.REDIS_URL ?? 'redis://:commerce_local@127.0.0.1:56379';

@@ -31,7 +31,12 @@ The approved shared foundation package is `packages/tsconfig`.
 
 ### Environment
 
-Copy `.env.example` to `.env` for local development. The API validates its environment before NestJS starts; keep local credentials in `.env`, which is ignored by Git.
+Copy `.env.example` to `.env` for local development. API startup and the
+`infra:migrate`, `infra:rollback`, and `infra:verify` scripts automatically load
+the repository `.env` when it exists. Values already exported in the shell are
+preserved, and the loader never prints environment values. The API validates
+its environment before NestJS starts; keep local credentials in `.env`, which
+is ignored by Git.
 
 ### Local Infrastructure
 
@@ -65,9 +70,6 @@ To run that foundation E2E flow locally with the same commands as CI:
 ```text
 cp .env.example .env
 docker compose -f infra/docker-compose.yml up -d --wait
-set -a
-. ./.env
-set +a
 pnpm --filter @commerce/api dev > /tmp/commerce-api.log 2>&1 &
 echo $! > /tmp/commerce-api.pid
 pnpm --filter @commerce/web dev > /tmp/commerce-web.log 2>&1 &
@@ -96,9 +98,9 @@ if [ -f /tmp/commerce-web.pid ]; then terminate_tree "$(cat /tmp/commerce-web.pi
 docker compose -f infra/docker-compose.yml down -v
 ```
 
-The API command uses the variables exported from `.env` and listens on port
-`4000`; the web command listens on port `3000`. Record each background process
-ID immediately after starting it, as in the CI workflow. The `terminate_tree`
+The API command automatically loads `.env` and listens on port `4000`; the web
+command listens on port `3000`. Record each background process ID immediately
+after starting it, as in the CI workflow. The `terminate_tree`
 function kills each launcher and all descendants after the probes and E2E
 command, then the Compose cleanup command removes the required services.
 

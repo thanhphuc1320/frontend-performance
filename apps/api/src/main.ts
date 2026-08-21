@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import '../../../scripts/load-env.cjs';
 import { NestFactory } from '@nestjs/core';
 import { loadApiConfig } from '@commerce/config';
 import { AppModule } from './app.module';

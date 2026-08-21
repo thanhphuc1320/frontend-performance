@@ -120,9 +120,6 @@ jobs:
       - run: cp .env.example .env
       - name: Start API and web
         run: |
-          set -a
-          . ./.env
-          set +a
           pnpm --filter @commerce/api dev > /tmp/commerce-api.log 2>&1 &
           echo $! > /tmp/commerce-api.pid
           pnpm --filter @commerce/web dev > /tmp/commerce-web.log 2>&1 &

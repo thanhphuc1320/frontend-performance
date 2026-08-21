@@ -2,6 +2,7 @@ import { readFile, readdir } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
+import '../../scripts/load-env.cjs';
 
 const { Client } = pg;
 const directory = dirname(fileURLToPath(import.meta.url));
