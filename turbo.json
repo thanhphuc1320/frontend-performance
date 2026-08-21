@@ -10,8 +10,12 @@
       "persistent": true
     },
     "lint": {},
-    "typecheck": {},
-    "test": {},
+    "typecheck": {
+      "dependsOn": ["^build"]
+    },
+    "test": {
+      "dependsOn": ["^build"]
+    },
     "test:e2e": {
       "cache": false
     },
