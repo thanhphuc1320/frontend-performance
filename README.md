@@ -83,16 +83,24 @@ for attempt in {1..30}; do
 done
 curl --fail --silent http://127.0.0.1:3000/ | grep -q "Foundation"
 pnpm test:e2e
-kill "$(cat /tmp/commerce-api.pid)" 2>/dev/null || true
-kill "$(cat /tmp/commerce-web.pid)" 2>/dev/null || true
+terminate_tree() {
+  local pid="$1"
+  local child
+  for child in $(pgrep -P "$pid" 2>/dev/null || true); do
+    terminate_tree "$child"
+  done
+  kill "$pid" 2>/dev/null || true
+}
+if [ -f /tmp/commerce-api.pid ]; then terminate_tree "$(cat /tmp/commerce-api.pid)"; fi
+if [ -f /tmp/commerce-web.pid ]; then terminate_tree "$(cat /tmp/commerce-web.pid)"; fi
 docker compose -f infra/docker-compose.yml down -v
 ```
 
 The API command uses the variables exported from `.env` and listens on port
 `4000`; the web command listens on port `3000`. Record each background process
-ID immediately after starting it, as in the CI workflow, before running the
-probes and E2E command. Kill those processes, then run the Compose cleanup
-command.
+ID immediately after starting it, as in the CI workflow. The `terminate_tree`
+function kills each launcher and all descendants after the probes and E2E
+command, then the Compose cleanup command removes the required services.
 
 Task 1 workspace discovery verification:
 

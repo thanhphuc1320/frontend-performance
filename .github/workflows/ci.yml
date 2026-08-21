@@ -142,8 +142,16 @@ jobs:
       - run: pnpm test:e2e
       - if: always()
         run: |
-          if [ -f /tmp/commerce-api.pid ]; then kill "$(cat /tmp/commerce-api.pid)" 2>/dev/null || true; fi
-          if [ -f /tmp/commerce-web.pid ]; then kill "$(cat /tmp/commerce-web.pid)" 2>/dev/null || true; fi
+          terminate_tree() {
+            local pid="$1"
+            local child
+            for child in $(pgrep -P "$pid" 2>/dev/null || true); do
+              terminate_tree "$child"
+            done
+            kill "$pid" 2>/dev/null || true
+          }
+          if [ -f /tmp/commerce-api.pid ]; then terminate_tree "$(cat /tmp/commerce-api.pid)"; fi
+          if [ -f /tmp/commerce-web.pid ]; then terminate_tree "$(cat /tmp/commerce-web.pid)"; fi
           docker compose -f infra/docker-compose.yml down -v
           if [ -f /tmp/commerce-api.log ]; then tail -n 100 /tmp/commerce-api.log; fi
           if [ -f /tmp/commerce-web.log ]; then tail -n 100 /tmp/commerce-web.log; fi
