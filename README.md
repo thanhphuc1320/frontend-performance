@@ -38,6 +38,8 @@ preserved, and the loader never prints environment values. The API validates
 its environment before NestJS starts; keep local credentials in `.env`, which
 is ignored by Git.
 
+Authentication configuration is documented in `docs/adr/0001-auth-security-and-persistence.md`. The example file uses in-memory email capture for local development and tests, so no messages are sent; tests inspect captured typed payloads through the delivery port. Do not add `SMTP_URL` or `CSRF_SECRET` to `.env.example`. Production must provide SMTP delivery, a valid `EMAIL_FROM`, and deployment-managed `SMTP_URL` and `CSRF_SECRET`; invalid production settings fail before NestJS startup.
+
 ### Local Infrastructure
 
 Docker is required for the local PostgreSQL and Redis services. Copy `.env.example` to `.env`, then start both services with `docker compose -f infra/docker-compose.yml up -d`; they bind authenticated services to loopback ports `55432` and `56379` and use named local volumes. Apply the empty migration baseline with `pnpm infra:migrate`, roll it back with `pnpm infra:rollback`, and verify both services with `pnpm infra:verify`. Stop services with `docker compose -f infra/docker-compose.yml down`; add `-v` to reset local data. These containers and credentials are for local development only and are not a production deployment design.
