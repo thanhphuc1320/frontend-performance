@@ -1,0 +1,31 @@
+{
+  "name": "commerce-control-center",
+  "private": true,
+  "packageManager": "pnpm@10.14.0",
+  "engines": {
+    "node": ">=24.0.0 <25"
+  },
+  "scripts": {
+    "dev": "turbo run dev --parallel",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test && node --test scripts/load-env.test.mjs",
+    "test:e2e": "turbo run test:e2e",
+    "test:integration": "pnpm infra:verify",
+    "format:check": "turbo run format:check",
+    "infra:migrate": "node infra/postgres/migrate.mjs up",
+    "infra:rollback": "node infra/postgres/migrate.mjs down",
+    "infra:verify": "node scripts/verify-infra.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.35.0",
+    "eslint": "^9.35.0",
+    "globals": "^16.3.0",
+    "pg": "^8.16.3",
+    "redis": "^5.8.2",
+    "turbo": "^2.5.6",
+    "typescript": "^5.9.2",
+    "typescript-eslint": "^8.42.0"
+  }
+}

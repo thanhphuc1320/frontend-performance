@@ -1,0 +1,167 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  CI: true
+
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.14.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+  lint:
+    needs: install
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.14.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+
+  typecheck:
+    needs: install
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.14.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+
+  unit:
+    needs: install
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.14.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+
+  integration:
+    needs: [lint, typecheck, unit]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.14.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: docker compose -f infra/docker-compose.yml up -d --wait
+      - run: pnpm test:integration
+      - if: always()
+        run: docker compose -f infra/docker-compose.yml down -v
+
+  build:
+    needs: [lint, typecheck, unit]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.14.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+
+  foundation-e2e:
+    needs: [integration, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.14.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: Run foundation E2E lifecycle
+        run: |
+          set -Eeuo pipefail
+          api_pid=''
+          web_pid=''
+          web_response_file=''
+          terminate_tree() {
+            local pid="$1"
+            local child
+            for child in $(pgrep -P "$pid" 2>/dev/null || true); do
+              terminate_tree "$child"
+            done
+            kill "$pid" 2>/dev/null || true
+          }
+          cleanup() {
+            local status=$?
+            trap - EXIT
+            set +e
+            if [ -n "$api_pid" ]; then terminate_tree "$api_pid"; fi
+            if [ -n "$web_pid" ]; then terminate_tree "$web_pid"; fi
+            if [ -n "$web_response_file" ]; then rm -f "$web_response_file"; fi
+            docker compose -f infra/docker-compose.yml down -v
+            if [ -f /tmp/commerce-api.log ]; then tail -n 100 /tmp/commerce-api.log; fi
+            if [ -f /tmp/commerce-web.log ]; then tail -n 100 /tmp/commerce-web.log; fi
+            exit "$status"
+          }
+          trap cleanup EXIT
+
+          cp .env.example .env
+          docker compose -f infra/docker-compose.yml up -d --wait
+          pnpm --filter @commerce/api dev > /tmp/commerce-api.log 2>&1 &
+          api_pid=$!
+          pnpm --filter @commerce/web dev > /tmp/commerce-web.log 2>&1 &
+          web_pid=$!
+          web_response_file=$(mktemp)
+
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:4000/health; then break; fi
+            sleep 2
+          done
+          curl --fail --silent http://127.0.0.1:4000/health
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:3000/; then break; fi
+            sleep 2
+          done
+          curl --fail --silent --output "$web_response_file" http://127.0.0.1:3000/
+          grep -qi "Foundation" "$web_response_file"
+          pnpm test:e2e

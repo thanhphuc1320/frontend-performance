@@ -1,0 +1,1 @@
+-- The empty baseline has no application objects to remove.

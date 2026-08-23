@@ -6,6 +6,7 @@ node_modules/
 !.env.example
 .next/
 dist/
+*.tsbuildinfo
 coverage/
 *.log
 # Turborepo
