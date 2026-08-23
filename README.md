@@ -72,6 +72,7 @@ pnpm build
 set -Eeuo pipefail
 api_pid=''
 web_pid=''
+web_response_file=''
 terminate_tree() {
   local pid="$1"
   local child
@@ -86,6 +87,7 @@ cleanup() {
   set +e
   if [ -n "$api_pid" ]; then terminate_tree "$api_pid"; fi
   if [ -n "$web_pid" ]; then terminate_tree "$web_pid"; fi
+  if [ -n "$web_response_file" ]; then rm -f "$web_response_file"; fi
   docker compose -f infra/docker-compose.yml down -v
   if [ -f /tmp/commerce-api.log ]; then tail -n 100 /tmp/commerce-api.log; fi
   if [ -f /tmp/commerce-web.log ]; then tail -n 100 /tmp/commerce-web.log; fi
@@ -98,6 +100,7 @@ pnpm --filter @commerce/api dev > /tmp/commerce-api.log 2>&1 &
 api_pid=$!
 pnpm --filter @commerce/web dev > /tmp/commerce-web.log 2>&1 &
 web_pid=$!
+web_response_file=$(mktemp)
 for attempt in {1..30}; do
   if curl --fail --silent http://127.0.0.1:4000/health; then break; fi
   sleep 2
@@ -107,7 +110,8 @@ for attempt in {1..30}; do
   if curl --fail --silent http://127.0.0.1:3000/; then break; fi
   sleep 2
 done
-curl --fail --silent http://127.0.0.1:3000/ | grep -q "Foundation"
+curl --fail --silent --output "$web_response_file" http://127.0.0.1:3000/
+grep -qi "Foundation" "$web_response_file"
 pnpm test:e2e
 ```
 
