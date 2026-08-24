@@ -33,7 +33,7 @@ export class User {
   }
 
   get lockUntil(): Date | null {
-    return this._lockUntil;
+    return this._lockUntil === null ? null : new Date(this._lockUntil);
   }
 
   verifyEmail(): void {

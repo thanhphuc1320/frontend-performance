@@ -31,6 +31,19 @@ describe('User', () => {
     expect(user.isLocked(new Date('2026-08-24T00:15:00Z'))).toBe(false);
   });
 
+  it('does not expose a mutable lockout deadline', () => {
+    const user = User.active('user-1', 'alice@example.com', 'password-hash');
+    const lockedAt = new Date('2026-08-24T00:00:00Z');
+
+    user.lockTemporarily(lockedAt);
+    const exposedDeadline = user.lockUntil;
+    const storedDeadline = exposedDeadline?.getTime();
+    exposedDeadline?.setTime(0);
+
+    expect(user.lockUntil?.getTime()).toBe(storedDeadline);
+    expect(user.isLocked(new Date('2026-08-24T00:14:59Z'))).toBe(true);
+  });
+
   it('does not allow disabled users to transition back to active', () => {
     const user = User.active('user-1', 'alice@example.com', 'password-hash');
 
