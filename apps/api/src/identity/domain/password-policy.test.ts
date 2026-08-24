@@ -15,6 +15,16 @@ describe('validatePassword', () => {
     });
   });
 
+  it.each(['Welcome123456', 'letmeinplease', 'football123456'])('rejects authoritative common password %s locally', async (password) => {
+    const isCompromised = jest.fn().mockResolvedValue(false);
+
+    await expect(validatePassword(password, { isCompromised })).resolves.toEqual({
+      valid: false,
+      reason: 'common-password',
+    });
+    expect(isCompromised).not.toHaveBeenCalled();
+  });
+
   it('rejects compromised passwords through the checker port', async () => {
     const checker = { isCompromised: async () => true };
 

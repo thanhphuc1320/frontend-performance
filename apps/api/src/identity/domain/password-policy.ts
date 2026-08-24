@@ -14,7 +14,29 @@ export interface CompromisedPasswordChecker {
   isCompromised(hashPrefix: string, hashSuffix: string): Promise<boolean>;
 }
 
-const COMMON_PASSWORDS = new Set(['password1234', 'password', '123456789012', 'qwertyuiop12']);
+// Local denylist keeps common-password rejection available without a provider call.
+const COMMON_PASSWORDS = new Set([
+  'password',
+  'password1234',
+  'password123456',
+  'passwordpassword',
+  '123456789012',
+  '1234567890123456',
+  'qwertyuiop12',
+  'qwertyuiopasdf',
+  'welcome123456',
+  'welcomehome123',
+  'letmeinplease',
+  'letmein123456',
+  'football123456',
+  'iloveyou123456',
+  'adminadmin1234',
+  'changeme12345',
+  'monkeymonkey12',
+  'dragon12345678',
+  'abc123abc123',
+  'trustnoone123',
+]);
 
 export async function validatePassword(
   value: string,

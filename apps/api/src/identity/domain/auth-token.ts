@@ -1,5 +1,7 @@
 import { timingSafeEqual } from 'node:crypto';
 
+const SHA256_HEX_PATTERN = /^[a-f0-9]{64}$/i;
+
 export enum AuthTokenType {
   VERIFICATION = 'VERIFICATION',
   PASSWORD_RESET = 'PASSWORD_RESET',
@@ -13,14 +15,23 @@ export class AuthToken {
 
   constructor(
     public readonly type: AuthTokenType,
-    private readonly hash: string,
+    hash: string,
     public readonly expiresAt: Date,
-  ) {}
+  ) {
+    if (!SHA256_HEX_PATTERN.test(hash)) {
+      throw new Error('Invalid token hash');
+    }
+    this.hash = hash.toLowerCase();
+  }
 
-  matchesHash(candidateHash: string): boolean {
+  private readonly hash: string;
+
+  matchesHash(candidateHash: string, now: Date = new Date()): boolean {
+    if (!this.isUsable(now) || !SHA256_HEX_PATTERN.test(candidateHash)) return false;
+
     const expected = Buffer.from(this.hash);
-    const candidate = Buffer.from(candidateHash);
-    return expected.length === candidate.length && timingSafeEqual(expected, candidate);
+    const candidate = Buffer.from(candidateHash.toLowerCase());
+    return timingSafeEqual(expected, candidate);
   }
 
   isUsable(now: Date = new Date()): boolean {
