@@ -18,7 +18,7 @@ describe('production identity adapters', () => {
   });
 
   it('requires SMTP configuration for the production email adapter', () => {
-    const config = loadApiConfig({ NODE_ENV: 'production', API_PORT: '4000', DATABASE_URL: 'postgresql://localhost/db', REDIS_URL: 'redis://localhost', SESSION_COOKIE_NAME: 'session', CORS_ORIGIN: 'https://example.com', AUTH_LOCKOUT_MAX_ATTEMPTS: '5', AUTH_LOCKOUT_DURATION_SECONDS: '900', AUTH_VERIFICATION_TOKEN_TTL_SECONDS: '86400', AUTH_PASSWORD_RESET_TOKEN_TTL_SECONDS: '3600', AUTH_EMAIL_CHANGE_TOKEN_TTL_SECONDS: '3600', EMAIL_DELIVERY_MODE: 'smtp', EMAIL_FROM: 'no-reply@example.com', SMTP_URL: 'smtps://smtp.example.com', CSRF_SECRET: 'a'.repeat(32) });
+    const config = loadApiConfig({ NODE_ENV: 'production', API_PORT: '4000', DATABASE_URL: 'postgresql://localhost/db', REDIS_URL: 'redis://localhost', SESSION_COOKIE_NAME: 'session', CORS_ORIGIN: 'https://commerce-control.io', AUTH_LOCKOUT_MAX_ATTEMPTS: '5', AUTH_LOCKOUT_DURATION_SECONDS: '900', AUTH_VERIFICATION_TOKEN_TTL_SECONDS: '86400', AUTH_PASSWORD_RESET_TOKEN_TTL_SECONDS: '3600', AUTH_EMAIL_CHANGE_TOKEN_TTL_SECONDS: '3600', EMAIL_DELIVERY_MODE: 'smtp', EMAIL_FROM: 'no-reply@commerce-control.io', SMTP_URL: 'smtps://smtp.mailgun.org', CSRF_SECRET: 'a'.repeat(32) });
     expect(new SmtpEmailDelivery(config).from).toBe(config.EMAIL_FROM);
   });
 });

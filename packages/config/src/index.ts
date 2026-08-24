@@ -77,8 +77,8 @@ export function loadApiConfig(env: Environment): ApiConfig {
     invalidFields.push('EMAIL_DELIVERY_MODE');
   }
   if (nodeEnv === 'production' && emailDeliveryMode !== 'smtp') invalidFields.push('EMAIL_DELIVERY_MODE');
-  if (emailFrom !== undefined && !isEmail(emailFrom)) invalidFields.push('EMAIL_FROM');
-  if (smtpUrl !== undefined && !isUrl(smtpUrl, ['smtp:', 'smtps:'])) invalidFields.push('SMTP_URL');
+  if (emailFrom !== undefined && (!isEmail(emailFrom) || (nodeEnv === 'production' && isProductionPlaceholder(emailFrom)))) invalidFields.push('EMAIL_FROM');
+  if (smtpUrl !== undefined && (!isUrl(smtpUrl, ['smtp:', 'smtps:']) || (nodeEnv === 'production' && isProductionPlaceholder(smtpUrl)))) invalidFields.push('SMTP_URL');
   if (csrfSecret.length < 32 || (nodeEnv === 'production' && containsPlaceholder(csrfSecret))) {
     invalidFields.push('CSRF_SECRET');
   }
@@ -124,6 +124,10 @@ function isEmail(value: string): boolean {
 function containsPlaceholder(value: string): boolean {
   const normalized = value.toLowerCase();
   return PLACEHOLDER_PATTERNS.some((pattern) => normalized.includes(pattern));
+}
+
+function isProductionPlaceholder(value: string): boolean {
+  return containsPlaceholder(value) || /(?:localhost|127\.0\.0\.1|0\.0\.0\.0|\.invalid)(?::|\/|$)/i.test(value);
 }
 
 function isUrl(value: string, protocols?: string[]): boolean {

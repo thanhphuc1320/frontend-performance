@@ -85,8 +85,8 @@ describe('loadApiConfig', () => {
       AUTH_PASSWORD_RESET_TOKEN_TTL_SECONDS: '3600',
       AUTH_EMAIL_CHANGE_TOKEN_TTL_SECONDS: '3600',
       EMAIL_DELIVERY_MODE: 'smtp',
-      EMAIL_FROM: 'no-reply@example.test',
-      SMTP_URL: 'smtps://smtp.example.test',
+      EMAIL_FROM: 'no-reply@commerce-control.io',
+      SMTP_URL: 'smtps://smtp.mailgun.org',
     };
 
     for (const value of ['a-placeholder-secret-value-123456789', 'change-me-123456789012345678901234', 'myExampleSecret123456789012345678']) {
@@ -104,8 +104,8 @@ describe('loadApiConfig', () => {
       AUTH_PASSWORD_RESET_TOKEN_TTL_SECONDS: '3600',
       AUTH_EMAIL_CHANGE_TOKEN_TTL_SECONDS: '3600',
       EMAIL_DELIVERY_MODE: 'smtp',
-      EMAIL_FROM: 'no-reply@example.test',
-      SMTP_URL: 'smtps://smtp.example.test',
+      EMAIL_FROM: 'no-reply@commerce-control.io',
+      SMTP_URL: 'smtps://smtp.mailgun.org',
       CSRF_SECRET: 'a-valid-production-csrf-key-123456789',
     });
 
@@ -121,5 +121,22 @@ describe('loadApiConfig', () => {
       AUTH_VERIFICATION_TOKEN_TTL_SECONDS: '86400', AUTH_PASSWORD_RESET_TOKEN_TTL_SECONDS: '3600', AUTH_EMAIL_CHANGE_TOKEN_TTL_SECONDS: '3600',
       EMAIL_DELIVERY_MODE: 'memory', EMAIL_FROM: 'no-reply@example.test', SMTP_URL: 'smtps://smtp.example.test', CSRF_SECRET: 'a-valid-production-csrf-key-123456789',
     }), /EMAIL_DELIVERY_MODE/);
+  });
+
+  it('rejects placeholder SMTP URLs and sender addresses in production', () => {
+    const productionEnv = {
+      ...validDevelopmentEnv,
+      NODE_ENV: 'production',
+      AUTH_LOCKOUT_MAX_ATTEMPTS: '5', AUTH_LOCKOUT_DURATION_SECONDS: '900',
+      AUTH_VERIFICATION_TOKEN_TTL_SECONDS: '86400', AUTH_PASSWORD_RESET_TOKEN_TTL_SECONDS: '3600', AUTH_EMAIL_CHANGE_TOKEN_TTL_SECONDS: '3600',
+      EMAIL_DELIVERY_MODE: 'smtp', EMAIL_FROM: 'no-reply@commerce-control.io', SMTP_URL: 'smtps://smtp.mailgun.org', CSRF_SECRET: 'a-valid-production-csrf-key-123456789',
+    };
+
+    for (const value of ['smtps://smtp.example.com', 'smtps://change-me.smtp.internal', 'smtp://localhost:2525']) {
+      assert.throws(() => loadApiConfig({ ...productionEnv, SMTP_URL: value }), /SMTP_URL/);
+    }
+    for (const value of ['no-reply@example.com', 'no-reply@change-me.invalid']) {
+      assert.throws(() => loadApiConfig({ ...productionEnv, EMAIL_FROM: value }), /EMAIL_FROM/);
+    }
   });
 });
