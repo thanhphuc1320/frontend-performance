@@ -25,10 +25,11 @@ async function postgresChecks() {
     await client.query('SELECT 1');
     const metadataTable = await client.query("SELECT to_regclass('public.schema_migrations') AS name");
     if (metadataTable.rows[0].name !== 'schema_migrations') throw new Error('schema_migrations table is missing');
-    await client.query(
-      "INSERT INTO schema_migrations (version) VALUES ('sentinel') ON CONFLICT (version) DO NOTHING",
-    );
-    sentinelInserted = true;
+    const sentinel = await client.query("SELECT 1 FROM schema_migrations WHERE version = 'sentinel'");
+    if (sentinel.rowCount === 0) {
+      await client.query("INSERT INTO schema_migrations (version) VALUES ('sentinel')");
+      sentinelInserted = true;
+    }
     const before = await client.query('SELECT version FROM schema_migrations WHERE version IN ($1, $2) ORDER BY version', ['0001', '0002']);
     if (before.rowCount !== 2) throw new Error('Auth/Store/RBAC migrations are not recorded exactly once');
     const sentinelBefore = await client.query('SELECT count(*)::int AS count FROM schema_migrations WHERE version = $1', ['sentinel']);

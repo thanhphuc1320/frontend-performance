@@ -101,23 +101,36 @@ CREATE INDEX invitations_store_idx ON invitations (store_id, status, expires_at)
 CREATE INDEX invitations_token_idx ON invitations (token_hash, status, expires_at);
 
 CREATE OR REPLACE FUNCTION prevent_final_owner_change() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+  owner_role_id uuid;
+  remaining_owners integer;
 BEGIN
-  IF OLD.role_id = (SELECT id FROM roles WHERE code = 'OWNER')
-     AND (TG_OP = 'DELETE' OR NEW.role_id <> OLD.role_id OR NEW.status IN ('LEFT', 'REMOVED', 'SUSPENDED'))
-     AND NOT EXISTS (
-       SELECT 1 FROM store_memberships m
-       JOIN roles r ON r.id = m.role_id
-       WHERE m.store_id = OLD.store_id AND m.id <> OLD.id AND m.status = 'ACTIVE' AND r.code = 'OWNER'
-     ) THEN
-    RAISE EXCEPTION 'cannot change the final Owner membership';
+  PERFORM pg_advisory_xact_lock(hashtextextended(OLD.store_id::text, 0));
+  SELECT id INTO owner_role_id FROM roles WHERE code = 'OWNER';
+  IF OLD.role_id = owner_role_id
+     AND (TG_OP = 'DELETE' OR NEW.role_id <> OLD.role_id OR NEW.status <> 'ACTIVE') THEN
+    SELECT count(*) INTO remaining_owners FROM store_memberships m
+      WHERE m.store_id = OLD.store_id AND m.id <> OLD.id AND m.status = 'ACTIVE' AND m.role_id = owner_role_id;
+    IF remaining_owners = 0 THEN
+      RAISE EXCEPTION 'cannot change the final Owner membership';
+    END IF;
   END IF;
-  RETURN NEW;
+  RETURN CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
 END;
 $$;
 CREATE TRIGGER store_memberships_final_owner
   BEFORE UPDATE ON store_memberships FOR EACH ROW EXECUTE FUNCTION prevent_final_owner_change();
 CREATE TRIGGER store_memberships_final_owner_delete
   BEFORE DELETE ON store_memberships FOR EACH ROW EXECUTE FUNCTION prevent_final_owner_change();
+
+CREATE OR REPLACE FUNCTION prevent_store_hard_delete() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  RAISE EXCEPTION 'Stores cannot be deleted';
+  RETURN OLD;
+END;
+$$;
+CREATE TRIGGER stores_no_hard_delete
+  BEFORE DELETE ON stores FOR EACH ROW EXECUTE FUNCTION prevent_store_hard_delete();
 
 INSERT INTO roles (code, name) VALUES
   ('OWNER', 'Owner'), ('ADMIN', 'Admin'), ('STAFF', 'Staff'), ('WAREHOUSE', 'Warehouse'), ('CUSTOMER_SUPPORT', 'Customer Support'), ('ANALYST', 'Analyst')

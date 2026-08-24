@@ -12,7 +12,7 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test && node --test scripts/load-env.test.mjs",
     "test:e2e": "turbo run test:e2e",
-    "test:integration": "pnpm infra:verify",
+    "test:integration": "pnpm infra:verify && pnpm --filter @commerce/api test:integration",
     "format:check": "turbo run format:check",
     "infra:migrate": "node infra/postgres/migrate.mjs up",
     "infra:rollback": "node infra/postgres/migrate.mjs down",

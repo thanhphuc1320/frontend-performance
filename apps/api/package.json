@@ -6,6 +6,7 @@
     "dev": "tsx watch src/main.ts",
     "lint": "eslint .",
     "test": "jest --runInBand",
+    "test:integration": "jest --runInBand --testRegex='test/.*\\.integration-spec\\.ts$'",
     "test:e2e": "jest --runInBand --testMatch '<rootDir>/test/**/*.e2e-spec.ts'",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

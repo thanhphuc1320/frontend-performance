@@ -1,4 +1,5 @@
 type Database = { query<T>(text: string, values?: readonly unknown[]): Promise<{ rows: T[]; rowCount: number | null }> };
+import { mapConflict } from '../../persistence/repository-error';
 export type SessionRecord = {
   id: string;
   userId: string;
@@ -18,12 +19,16 @@ export class SessionRepository {
   constructor(private readonly database: Database) {}
 
   async create(input: Omit<SessionRecord, 'revokedAt'> & { userAgent?: string; ipAddress?: string }): Promise<SessionRecord> {
-    const result = await this.database.query<SessionRow>(
-      `INSERT INTO sessions (id, user_id, session_hash, last_activity_at, idle_expires_at, absolute_expires_at, user_agent, ip_address)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-      [input.id, input.userId, input.sessionHash, input.lastActivityAt, input.idleExpiresAt, input.absoluteExpiresAt, input.userAgent ?? null, input.ipAddress ?? null],
-    );
-    return toSession(result.rows[0]!);
+    try {
+      const result = await this.database.query<SessionRow>(
+        `INSERT INTO sessions (id, user_id, session_hash, last_activity_at, idle_expires_at, absolute_expires_at, user_agent, ip_address)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+        [input.id, input.userId, input.sessionHash, input.lastActivityAt, input.idleExpiresAt, input.absoluteExpiresAt, input.userAgent ?? null, input.ipAddress ?? null],
+      );
+      return toSession(result.rows[0]!);
+    } catch (error) {
+      return mapConflict(error, 'Session already exists');
+    }
   }
 
   async findByHash(sessionHash: string): Promise<SessionRecord | null> {
