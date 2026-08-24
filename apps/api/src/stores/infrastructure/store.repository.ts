@@ -12,9 +12,21 @@ type InvitationRow = { id: string; store_id: string; email: string; role_code: s
 export class StoreRepository {
   constructor(private readonly database: Database) {}
 
-  async createStore(input: { id: string; name: string; timezone?: string; currency?: string; createdBy: string }): Promise<StoreRecord> {
+  async transaction<T>(work: (executor: Database) => Promise<T>): Promise<T> {
+    await this.database.query('BEGIN');
     try {
-      const result = await this.database.query<StoreRow>(
+      const result = await work(this.database);
+      await this.database.query('COMMIT');
+      return result;
+    } catch (error) {
+      await this.database.query('ROLLBACK');
+      throw error;
+    }
+  }
+
+  async createStore(input: { id: string; name: string; timezone?: string; currency?: string; createdBy: string }, executor: Database = this.database): Promise<StoreRecord> {
+    try {
+      const result = await executor.query<StoreRow>(
         `INSERT INTO stores (id, name, timezone, currency, created_by) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, timezone, currency, status, created_by`,
         [input.id, input.name, input.timezone ?? 'Asia/Ho_Chi_Minh', input.currency ?? 'VND', input.createdBy],
       );
@@ -33,10 +45,10 @@ export class StoreRepository {
     return result.rows.map((row) => ({ id: row.id, name: row.name, timezone: row.timezone, currency: row.currency, status: row.status, createdBy: row.created_by }));
   }
 
-  async createMembership(input: { id: string; storeId: string; userId: string; roleCode: string; status?: MembershipStatus }): Promise<MembershipRecord> {
+  async createMembership(input: { id: string; storeId: string; userId: string; roleCode: string; status?: MembershipStatus }, executor: Database = this.database): Promise<MembershipRecord> {
     let result;
     try {
-      result = await this.database.query<MembershipRow>(
+      result = await executor.query<MembershipRow>(
         `INSERT INTO store_memberships (id, store_id, user_id, role_id, status) SELECT $1, $2, $3, id, $5 FROM roles WHERE code = $4
          RETURNING id, store_id, user_id, status, (SELECT code FROM roles WHERE id = role_id) AS role_code`,
         [input.id, input.storeId, input.userId, input.roleCode, input.status ?? 'ACTIVE'],
