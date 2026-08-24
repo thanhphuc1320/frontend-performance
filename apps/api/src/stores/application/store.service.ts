@@ -1,41 +1,51 @@
 import { randomUUID } from 'node:crypto';
 import { UserStatus } from '../../identity/domain/user';
 import type { IdentityStore } from '../../identity/application/identity.service';
-
-type StoreRepository = {
-  createStore(input: { id: string; name: string; timezone?: string; currency?: string; createdBy: string }, executor?: unknown): Promise<StoreRecord>;
-  createMembership(input: { id: string; storeId: string; userId: string; roleCode: string }, executor?: unknown): Promise<MembershipRecord>;
-  listForUser(userId: string): Promise<StoreRecord[]>;
-  findMembership(storeId: string, userId: string): Promise<MembershipRecord | null>;
-  transaction?<T>(work: (executor: unknown) => Promise<T>): Promise<T>;
-};
+import { ApiError } from '../../http/api-error';
+import { Inject } from '@nestjs/common';
+import { IDENTITY_REPOSITORY } from '../../identity/application/identity.tokens';
+import { STORE_REPOSITORY } from './store.tokens';
 
 type StoreRecord = { id: string; name: string; timezone: string; currency: string; status: 'ACTIVE' | 'DEACTIVATED'; createdBy: string };
 type MembershipRecord = { id: string; storeId: string; userId: string; roleCode: string; status: string };
+type StoreRepository = {
+  createStore(input: { id: string; name: string; timezone?: string; currency?: string; createdBy: string; idempotencyKey: string }, executor?: unknown): Promise<StoreRecord>;
+  createMembership(input: { id: string; storeId: string; userId: string; roleCode: string }, executor?: unknown): Promise<MembershipRecord>;
+  listForUser(userId: string): Promise<StoreRecord[]>;
+  findMembership(storeId: string, userId: string): Promise<MembershipRecord | null>;
+  findByIdempotencyKey(userId: string, idempotencyKey: string): Promise<{ store: StoreRecord; membership: MembershipRecord } | null>;
+  transaction?<T>(work: (executor: unknown) => Promise<T>): Promise<T>;
+};
 
 export class StoreService {
   constructor(
+    @Inject(STORE_REPOSITORY)
     private readonly repository: StoreRepository,
+    @Inject(IDENTITY_REPOSITORY)
     private readonly identity: Pick<IdentityStore, 'findUserById'>,
   ) {}
 
-  async createFirstStore(userId: string, input: { name: string; timezone?: string; currency?: string }): Promise<{ store: StoreRecord; membership: MembershipRecord }> {
+  async createFirstStore(userId: string, input: { name: string; timezone?: string; currency?: string }, idempotencyKey: string): Promise<{ store: StoreRecord; membership: MembershipRecord }> {
     const user = await this.identity.findUserById(userId);
-    if (!user || user.status !== UserStatus.ACTIVE) throw new Error('Email verification required');
+    if (!user || user.status !== UserStatus.ACTIVE) throw new ApiError(401, 'EMAIL_VERIFICATION_REQUIRED', 'Email verification required');
+    if (typeof idempotencyKey !== 'string' || !idempotencyKey.trim()) throw new ApiError(400, 'VALIDATION_ERROR', 'Idempotency-Key is required');
+    if (!input || typeof input.name !== 'string') throw new ApiError(400, 'VALIDATION_ERROR', 'Invalid request');
     const name = input.name.trim();
-    if (!name) throw new Error('Store name is required');
+    if (!name) throw new ApiError(400, 'VALIDATION_ERROR', 'Store name is required');
+    if (input.currency !== undefined && input.currency !== 'VND') throw new ApiError(400, 'VALIDATION_ERROR', 'Unsupported currency');
+    const timezone = input.timezone ?? 'Asia/Ho_Chi_Minh';
+    if (!isIanaTimezone(timezone)) throw new ApiError(400, 'VALIDATION_ERROR', 'Invalid timezone');
+    const prior = await this.repository.findByIdempotencyKey(userId, idempotencyKey);
+    if (prior) return prior;
 
     try {
-      return this.repository.transaction
-        ? await this.repository.transaction(async (executor) => this.createStoreAndOwner(userId, { ...input, name }, executor))
-        : await this.createStoreAndOwner(userId, { ...input, name }, undefined);
+      const create = (executor: unknown) => this.createStoreAndOwner(userId, { name, timezone, currency: 'VND', idempotencyKey }, executor);
+      return this.repository.transaction ? await this.repository.transaction(create) : await create(undefined);
     } catch (error) {
       if (!isConflict(error)) throw error;
-      const existing = (await this.repository.listForUser(userId)).find((store) => store.name === name);
+      const existing = await this.repository.findByIdempotencyKey(userId, idempotencyKey);
       if (!existing) throw error;
-      const membership = await this.repository.findMembership(existing.id, userId);
-      if (!membership || membership.status !== 'ACTIVE' || membership.roleCode !== 'OWNER') throw error;
-      return { store: existing, membership };
+      return existing;
     }
   }
 
@@ -47,19 +57,28 @@ export class StoreService {
   async selectStore(userId: string, storeId: string): Promise<{ storeId: string }> {
     await this.requireActiveUser(userId);
     const stores = await this.repository.listForUser(userId);
-    if (!stores.some((store) => store.id === storeId && store.status === 'ACTIVE')) throw new Error('Store access denied');
+    if (!stores.some((store) => store.id === storeId && store.status === 'ACTIVE')) throw new ApiError(403, 'STORE_ACCESS_DENIED', 'Store access denied');
     return { storeId };
   }
 
   private async requireActiveUser(userId: string): Promise<void> {
     const user = await this.identity.findUserById(userId);
-    if (!user || user.status !== UserStatus.ACTIVE) throw new Error('Email verification required');
+    if (!user || user.status !== UserStatus.ACTIVE) throw new ApiError(401, 'EMAIL_VERIFICATION_REQUIRED', 'Email verification required');
   }
 
-  private async createStoreAndOwner(userId: string, input: { name: string; timezone?: string; currency?: string }, executor: unknown): Promise<{ store: StoreRecord; membership: MembershipRecord }> {
-    const store = await this.repository.createStore({ id: randomUUID(), name: input.name, timezone: input.timezone ?? 'Asia/Ho_Chi_Minh', currency: input.currency ?? 'VND', createdBy: userId }, executor);
+  private async createStoreAndOwner(userId: string, input: { name: string; timezone: string; currency: string; idempotencyKey: string }, executor: unknown): Promise<{ store: StoreRecord; membership: MembershipRecord }> {
+    const store = await this.repository.createStore({ id: randomUUID(), name: input.name, timezone: input.timezone, currency: input.currency, createdBy: userId, idempotencyKey: input.idempotencyKey }, executor);
     const membership = await this.repository.createMembership({ id: randomUUID(), storeId: store.id, userId, roleCode: 'OWNER' }, executor);
     return { store, membership };
+  }
+}
+
+function isIanaTimezone(value: string): boolean {
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: value }).format();
+    return true;
+  } catch {
+    return false;
   }
 }
 

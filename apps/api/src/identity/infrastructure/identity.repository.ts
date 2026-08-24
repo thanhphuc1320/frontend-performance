@@ -4,7 +4,7 @@ import { mapConflict } from '../../persistence/repository-error';
 
 type QueryResult<T> = { rows: T[]; rowCount: number | null };
 type Executor = { query<T>(text: string, values?: readonly unknown[]): Promise<QueryResult<T>> };
-type Database = Executor;
+type Database = Executor & { acquire?: () => Promise<Executor & { release(): void }> };
 type UserRow = { id: string; email_normalized: string; password_hash: string; status: UserStatus; lock_until: Date | null };
 
 function toUser(row: UserRow): User {
@@ -15,6 +15,20 @@ export class IdentityRepository {
   constructor(private readonly database: Database) {}
 
   async transaction<T>(work: (executor: Executor) => Promise<T>): Promise<T> {
+    if (this.database.acquire) {
+      const connection = await this.database.acquire();
+      await connection.query('BEGIN');
+      try {
+        const result = await work(connection);
+        await connection.query('COMMIT');
+        return result;
+      } catch (error) {
+        await connection.query('ROLLBACK');
+        throw error;
+      } finally {
+        connection.release();
+      }
+    }
     await this.database.query('BEGIN');
     try {
       const result = await work(this.database);

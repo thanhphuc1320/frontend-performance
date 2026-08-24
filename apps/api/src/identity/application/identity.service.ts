@@ -6,6 +6,9 @@ import { validatePassword, type CompromisedPasswordChecker } from '../domain/pas
 import { User } from '../domain/user';
 import type { EmailDelivery } from './ports/email-delivery';
 import type { PasswordHasher } from './ports/password-hasher';
+import { ApiError } from '../../http/api-error';
+import { Inject } from '@nestjs/common';
+import { API_CONFIG, COMPROMISED_PASSWORD_CHECKER, EMAIL_DELIVERY, IDENTITY_REPOSITORY, PASSWORD_HASHER } from './identity.tokens';
 
 export type IdentityStore = {
   createUser(input: { id: string; email: string; passwordHash: string }, executor?: unknown): Promise<User>;
@@ -22,17 +25,28 @@ const safeResponse = { accepted: true } as const;
 
 export class IdentityService {
   constructor(
+    @Inject(IDENTITY_REPOSITORY)
     private readonly repository: IdentityStore,
+    @Inject(PASSWORD_HASHER)
     private readonly passwordHasher: PasswordHasher,
+    @Inject(EMAIL_DELIVERY)
     private readonly emailDelivery: Pick<EmailDelivery, 'sendVerification'>,
+    @Inject(COMPROMISED_PASSWORD_CHECKER)
     private readonly compromisedPasswordChecker: CompromisedPasswordChecker,
+    @Inject(API_CONFIG)
     private readonly config: Pick<ApiConfig, 'AUTH_VERIFICATION_TOKEN_TTL_SECONDS'> = { AUTH_VERIFICATION_TOKEN_TTL_SECONDS: 86400 },
   ) {}
 
   async register(input: { email: string; password: string }): Promise<{ accepted: true }> {
-    const email = normalizeEmail(input.email);
+    if (typeof input?.email !== 'string' || typeof input?.password !== 'string') throw new ApiError(400, 'VALIDATION_ERROR', 'Invalid request');
+    let email: string;
+    try {
+      email = normalizeEmail(input.email);
+    } catch {
+      throw new ApiError(400, 'VALIDATION_ERROR', 'Invalid email');
+    }
     const policy = await validatePassword(input.password, this.compromisedPasswordChecker);
-    if (!policy.valid) throw new Error('Invalid password');
+    if (!policy.valid) throw new ApiError(400, 'VALIDATION_ERROR', 'Invalid password');
 
     const rawToken = randomBytes(32).toString('hex');
     const tokenHash = createHash('sha256').update(rawToken).digest('hex');
@@ -59,6 +73,7 @@ export class IdentityService {
   }
 
   async verifyEmail(rawToken: string): Promise<{ verified: boolean }> {
+    if (typeof rawToken !== 'string' || !rawToken.trim()) throw new ApiError(400, 'VALIDATION_ERROR', 'Verification token is required');
     const hash = createHash('sha256').update(rawToken).digest('hex');
     const token = await this.repository.findToken(hash, AuthTokenType.VERIFICATION);
     if (!token?.userId) return { verified: false };
