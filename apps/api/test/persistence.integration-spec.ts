@@ -187,4 +187,20 @@ describe('Auth/Store/RBAC persistence', () => {
     await identity.createToken({ id: randomUUID(), userId, type: AuthTokenType.VERIFICATION, hash: 'e'.repeat(64), expiresAt: new Date(Date.now() + 3600000) });
     await expect(identity.createToken({ id: randomUUID(), userId, type: AuthTokenType.PASSWORD_RESET, hash: 'e'.repeat(64), expiresAt: new Date(Date.now() + 3600000) })).rejects.toMatchObject({ code: 'CONFLICT', message: 'Token already exists' });
   });
+
+  it('does not reconcile idempotency keys to inactive or non-Owner memberships', async () => {
+    const userId = randomUUID();
+    const storeId = randomUUID();
+    const secondUserId = randomUUID();
+    await client.query('INSERT INTO users (id, email_normalized, password_hash, status) VALUES ($1, $2, $3, \'ACTIVE\'), ($4, $5, $6, \'ACTIVE\')', [userId, 'reconcile@example.com', 'hash', secondUserId, 'reconcile-two@example.com', 'hash']);
+    await client.query('INSERT INTO stores (id, name, created_by, status, onboarding_idempotency_key) VALUES ($1, $2, $3, \'DEACTIVATED\', $4)', [storeId, 'Inactive', userId, 'retry-key']);
+    await client.query('INSERT INTO store_memberships (store_id, user_id, role_id) SELECT $1, $2, id FROM roles WHERE code = \'OWNER\'', [storeId, userId]);
+    const stores = new StoreRepository(client);
+
+    await expect(stores.findByIdempotencyKey(userId, 'retry-key')).resolves.toBeNull();
+    await client.query('UPDATE stores SET status = \'ACTIVE\' WHERE id = $1', [storeId]);
+    await client.query('INSERT INTO store_memberships (store_id, user_id, role_id) SELECT $1, $2, id FROM roles WHERE code = \'OWNER\'', [storeId, secondUserId]);
+    await client.query('UPDATE store_memberships SET role_id = (SELECT id FROM roles WHERE code = \'STAFF\') WHERE store_id = $1 AND user_id = $2', [storeId, userId]);
+    await expect(stores.findByIdempotencyKey(userId, 'retry-key')).resolves.toBeNull();
+  });
 });

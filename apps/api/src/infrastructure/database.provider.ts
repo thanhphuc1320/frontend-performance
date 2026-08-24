@@ -3,7 +3,11 @@ import { Pool, type PoolClient } from 'pg';
 export const DATABASE = Symbol('DATABASE');
 
 export class PostgresDatabase {
-  private readonly pool = new Pool({ connectionString: process.env.DATABASE_URL ?? 'postgresql://postgres:commerce_local@127.0.0.1:55432/commerce' });
+  private readonly pool: Pool;
+
+  constructor(connectionString = 'postgresql://postgres:commerce_local@127.0.0.1:55432/commerce') {
+    this.pool = new Pool({ connectionString });
+  }
 
   query<T>(text: string, values?: readonly unknown[]): Promise<{ rows: T[]; rowCount: number | null }> {
     return this.pool.query<T>(text, values as unknown[]);

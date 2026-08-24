@@ -66,7 +66,8 @@ export class StoreRepository {
               m.id AS membership_id, m.store_id, m.user_id, m.status AS membership_status,
               r.code AS role_code
        FROM stores s JOIN store_memberships m ON m.store_id = s.id JOIN roles r ON r.id = m.role_id
-       WHERE s.created_by = $1 AND s.onboarding_idempotency_key = $2 AND m.user_id = $1 AND m.status = 'ACTIVE'`,
+       WHERE s.created_by = $1 AND s.onboarding_idempotency_key = $2 AND s.status = 'ACTIVE'
+         AND m.user_id = $1 AND m.status = 'ACTIVE' AND r.code = 'OWNER'`,
       [userId, idempotencyKey],
     );
     if (result.rowCount === 0) return null;

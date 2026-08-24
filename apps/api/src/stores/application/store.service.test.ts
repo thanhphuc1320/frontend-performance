@@ -41,6 +41,12 @@ describe('StoreService', () => {
     expect(repository.transaction).not.toHaveBeenCalled();
   });
 
+  it('uses authorization status 403 for an authenticated but unverified user', async () => {
+    const { service, user } = setup(UserStatus.UNVERIFIED);
+
+    await expect(service.createFirstStore(user.id, { name: 'My Store' }, 'request-1')).rejects.toMatchObject({ status: 403, code: 'EMAIL_VERIFICATION_REQUIRED' });
+  });
+
   it('propagates membership failure so the transaction can roll back the Store', async () => {
     const { service, repository, user } = setup();
     repository.createMembership.mockRejectedValueOnce(new Error('membership failed'));
@@ -73,6 +79,13 @@ describe('StoreService', () => {
     await service.createFirstStore(user.id, { name: 'My Store' }, 'stable-request-key');
 
     expect(repository.createStore).toHaveBeenCalledWith(expect.objectContaining({ idempotencyKey: 'stable-request-key' }), expect.anything());
+  });
+
+  it('rejects reuse of an idempotency key with different Store state', async () => {
+    const { service, repository, user, store } = setup();
+    repository.findByIdempotencyKey.mockResolvedValueOnce({ store, membership: { id: 'membership-1', storeId: store.id, userId: user.id, roleCode: 'OWNER', status: 'ACTIVE' } });
+
+    await expect(service.createFirstStore(user.id, { name: 'Different Store' }, 'request-1')).rejects.toMatchObject({ status: 409, code: 'IDEMPOTENCY_CONFLICT' });
   });
 
   it('rejects invalid timezone and unsupported currency', async () => {

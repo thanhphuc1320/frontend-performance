@@ -76,6 +76,7 @@ export function loadApiConfig(env: Environment): ApiConfig {
   if (emailDeliveryMode !== undefined && !['memory', 'smtp'].includes(emailDeliveryMode)) {
     invalidFields.push('EMAIL_DELIVERY_MODE');
   }
+  if (nodeEnv === 'production' && emailDeliveryMode !== 'smtp') invalidFields.push('EMAIL_DELIVERY_MODE');
   if (emailFrom !== undefined && !isEmail(emailFrom)) invalidFields.push('EMAIL_FROM');
   if (smtpUrl !== undefined && !isUrl(smtpUrl, ['smtp:', 'smtps:'])) invalidFields.push('SMTP_URL');
   if (csrfSecret.length < 32 || (nodeEnv === 'production' && containsPlaceholder(csrfSecret))) {

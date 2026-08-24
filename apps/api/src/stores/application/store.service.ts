@@ -5,6 +5,8 @@ import { ApiError } from '../../http/api-error';
 import { Inject } from '@nestjs/common';
 import { IDENTITY_REPOSITORY } from '../../identity/application/identity.tokens';
 import { STORE_REPOSITORY } from './store.tokens';
+import type { ApiConfig } from '@commerce/config';
+import { API_CONFIG } from '../../identity/application/identity.tokens';
 
 type StoreRecord = { id: string; name: string; timezone: string; currency: string; status: 'ACTIVE' | 'DEACTIVATED'; createdBy: string };
 type MembershipRecord = { id: string; storeId: string; userId: string; roleCode: string; status: string };
@@ -23,11 +25,14 @@ export class StoreService {
     private readonly repository: StoreRepository,
     @Inject(IDENTITY_REPOSITORY)
     private readonly identity: Pick<IdentityStore, 'findUserById'>,
+    @Inject(API_CONFIG)
+    private readonly config: Pick<ApiConfig, 'NODE_ENV'> = { NODE_ENV: 'test' },
   ) {}
 
   async createFirstStore(userId: string, input: { name: string; timezone?: string; currency?: string }, idempotencyKey: string): Promise<{ store: StoreRecord; membership: MembershipRecord }> {
     const user = await this.identity.findUserById(userId);
-    if (!user || user.status !== UserStatus.ACTIVE) throw new ApiError(401, 'EMAIL_VERIFICATION_REQUIRED', 'Email verification required');
+    if (!user) throw new ApiError(401, 'UNAUTHENTICATED', 'Authentication required');
+    if (user.status !== UserStatus.ACTIVE) throw new ApiError(403, 'EMAIL_VERIFICATION_REQUIRED', 'Email verification required');
     if (typeof idempotencyKey !== 'string' || !idempotencyKey.trim()) throw new ApiError(400, 'VALIDATION_ERROR', 'Idempotency-Key is required');
     if (!input || typeof input.name !== 'string') throw new ApiError(400, 'VALIDATION_ERROR', 'Invalid request');
     const name = input.name.trim();
@@ -36,7 +41,10 @@ export class StoreService {
     const timezone = input.timezone ?? 'Asia/Ho_Chi_Minh';
     if (!isIanaTimezone(timezone)) throw new ApiError(400, 'VALIDATION_ERROR', 'Invalid timezone');
     const prior = await this.repository.findByIdempotencyKey(userId, idempotencyKey);
-    if (prior) return prior;
+    if (prior) {
+      if (prior.store.name !== name || prior.store.timezone !== timezone || prior.store.currency !== 'VND') throw new ApiError(409, 'IDEMPOTENCY_CONFLICT', 'Idempotency key has different request state');
+      return prior;
+    }
 
     try {
       const create = (executor: unknown) => this.createStoreAndOwner(userId, { name, timezone, currency: 'VND', idempotencyKey }, executor);
@@ -44,7 +52,8 @@ export class StoreService {
     } catch (error) {
       if (!isConflict(error)) throw error;
       const existing = await this.repository.findByIdempotencyKey(userId, idempotencyKey);
-      if (!existing) throw error;
+      if (!existing) throw new ApiError(409, 'IDEMPOTENCY_CONFLICT', 'Idempotency key cannot be reconciled');
+      if (existing.store.name !== name || existing.store.timezone !== timezone || existing.store.currency !== 'VND') throw new ApiError(409, 'IDEMPOTENCY_CONFLICT', 'Idempotency key has different request state');
       return existing;
     }
   }
@@ -63,7 +72,8 @@ export class StoreService {
 
   private async requireActiveUser(userId: string): Promise<void> {
     const user = await this.identity.findUserById(userId);
-    if (!user || user.status !== UserStatus.ACTIVE) throw new ApiError(401, 'EMAIL_VERIFICATION_REQUIRED', 'Email verification required');
+    if (!user) throw new ApiError(401, 'UNAUTHENTICATED', 'Authentication required');
+    if (user.status !== UserStatus.ACTIVE) throw new ApiError(403, 'EMAIL_VERIFICATION_REQUIRED', 'Email verification required');
   }
 
   private async createStoreAndOwner(userId: string, input: { name: string; timezone: string; currency: string; idempotencyKey: string }, executor: unknown): Promise<{ store: StoreRecord; membership: MembershipRecord }> {

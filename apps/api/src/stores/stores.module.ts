@@ -1,11 +1,10 @@
-import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { IdentityModule } from '../identity/identity.module';
 import { StoreService } from './application/store.service';
 import { StoreController } from './http/store.controller';
 import { StoreRepository } from './infrastructure/store.repository';
 import { DATABASE, PostgresDatabase } from '../infrastructure/database.provider';
 import { STORE_REPOSITORY } from './application/store.tokens';
-import { TestRequestContextMiddleware } from '../auth/http/test-request-context.middleware';
 
 @Module({
   imports: [IdentityModule],
@@ -16,8 +15,4 @@ import { TestRequestContextMiddleware } from '../auth/http/test-request-context.
   ],
   exports: [StoreService],
 })
-export class StoresModule implements NestModule {
-  configure(consumer: MiddlewareConsumer): void {
-    consumer.apply(TestRequestContextMiddleware).forRoutes(StoreController);
-  }
-}
+export class StoresModule {}

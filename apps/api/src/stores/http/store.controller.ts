@@ -9,6 +9,7 @@ export class StoreController {
   constructor(private readonly stores: StoreService) {}
 
   @Post()
+  // First-Store retries must send the same Idempotency-Key for the same request state.
   async create(@Req() request: AuthenticatedRequest, @Headers('idempotency-key') idempotencyKey: string | undefined, @Body() body: { name: string; timezone?: string; currency?: string }) {
     return { data: await this.stores.createFirstStore(this.userId(request), body, idempotencyKey ?? '') };
   }
