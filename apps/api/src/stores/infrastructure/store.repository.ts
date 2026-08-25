@@ -119,8 +119,74 @@ export class StoreRepository {
     return { id: row.id, storeId: row.store_id, email: row.email, roleCode: row.role_code, tokenHash: row.token_hash, status: row.status, expiresAt: row.expires_at, consumedAt: row.consumed_at, revokedAt: row.revoked_at };
   }
 
-  async consumeInvitation(tokenHash: string): Promise<boolean> {
-    const result = await this.database.query(`UPDATE invitations SET status = 'ACCEPTED', consumed_at = now() WHERE token_hash = $1 AND status = 'PENDING' AND consumed_at IS NULL AND revoked_at IS NULL AND expires_at > now()`, [tokenHash]);
-    return result.rowCount === 1;
+  async findStoreById(storeId: string, executor: Database = this.database): Promise<StoreRecord | null> {
+    const result = await executor.query<StoreRow>(
+      `SELECT id, name, timezone, currency, status, created_by FROM stores WHERE id = $1`, [storeId],
+    );
+    if (result.rowCount === 0) return null;
+    const row = result.rows[0]!;
+    return { id: row.id, name: row.name, timezone: row.timezone, currency: row.currency, status: row.status, createdBy: row.created_by };
+  }
+
+  async listMemberships(storeId: string, executor: Database = this.database): Promise<MembershipRecord[]> {
+    const result = await executor.query<MembershipRow>(
+      `SELECT m.id, m.store_id, m.user_id, m.status, r.code AS role_code FROM store_memberships m JOIN roles r ON r.id = m.role_id WHERE m.store_id = $1 ORDER BY m.created_at`, [storeId],
+    );
+    return result.rows.map((row) => ({ id: row.id, storeId: row.store_id, userId: row.user_id, roleCode: row.role_code, status: row.status }));
+  }
+
+  async updateMembershipStatus(membershipId: string, status: MembershipStatus, executor: Database = this.database): Promise<MembershipRecord> {
+    const result = await executor.query<MembershipRow>(
+      `UPDATE store_memberships SET status = $2, updated_at = now() WHERE id = $1 RETURNING id, store_id, user_id, status, (SELECT code FROM roles WHERE id = role_id) AS role_code`,
+      [membershipId, status],
+    );
+    if (result.rowCount === 0) throw new RepositoryError('NOT_FOUND', 'Membership not found');
+    const row = result.rows[0]!;
+    return { id: row.id, storeId: row.store_id, userId: row.user_id, roleCode: row.role_code, status: row.status };
+  }
+
+  async updateMembershipRole(membershipId: string, roleCode: string, executor: Database = this.database): Promise<MembershipRecord> {
+    const result = await executor.query<MembershipRow>(
+      `UPDATE store_memberships SET role_id = (SELECT id FROM roles WHERE code = $2), updated_at = now() WHERE id = $1 RETURNING id, store_id, user_id, status, (SELECT code FROM roles WHERE id = role_id) AS role_code`,
+      [membershipId, roleCode],
+    );
+    if (result.rowCount === 0) throw new RepositoryError('NOT_FOUND', 'Membership not found');
+    const row = result.rows[0]!;
+    return { id: row.id, storeId: row.store_id, userId: row.user_id, roleCode: row.role_code, status: row.status };
+  }
+
+  async countActiveOwners(storeId: string, executor: Database = this.database): Promise<number> {
+    const result = await executor.query<{ count: string }>(
+      `SELECT count(*)::text AS count FROM store_memberships m JOIN roles r ON r.id = m.role_id WHERE m.store_id = $1 AND m.status = 'ACTIVE' AND r.code = 'OWNER'`, [storeId],
+    );
+    return parseInt(result.rows[0]!.count, 10);
+  }
+
+  async findInvitationByTokenHash(tokenHash: string, executor: Database = this.database): Promise<InvitationRecord | null> {
+    const result = await executor.query<InvitationRow>(
+      `SELECT id, store_id, email_normalized AS email, token_hash, status, expires_at, consumed_at, revoked_at, (SELECT code FROM roles WHERE id = role_id) AS role_code FROM invitations WHERE token_hash = $1`, [tokenHash],
+    );
+    if (result.rowCount === 0) return null;
+    const row = result.rows[0]!;
+    return { id: row.id, storeId: row.store_id, email: row.email, roleCode: row.role_code, tokenHash: row.token_hash, status: row.status, expiresAt: row.expires_at, consumedAt: row.consumed_at, revokedAt: row.revoked_at };
+  }
+
+  async findInvitationById(invitationId: string, executor: Database = this.database): Promise<InvitationRecord | null> {
+    const result = await executor.query<InvitationRow>(
+      `SELECT id, store_id, email_normalized AS email, token_hash, status, expires_at, consumed_at, revoked_at, (SELECT code FROM roles WHERE id = role_id) AS role_code FROM invitations WHERE id = $1`, [invitationId],
+    );
+    if (result.rowCount === 0) return null;
+    const row = result.rows[0]!;
+    return { id: row.id, storeId: row.store_id, email: row.email, roleCode: row.role_code, tokenHash: row.token_hash, status: row.status, expiresAt: row.expires_at, consumedAt: row.consumed_at, revokedAt: row.revoked_at };
+  }
+
+  async revokeInvitation(invitationId: string, executor: Database = this.database): Promise<InvitationRecord> {
+    const result = await executor.query<InvitationRow>(
+      `UPDATE invitations SET status = 'REVOKED', revoked_at = now() WHERE id = $1 AND status = 'PENDING' AND revoked_at IS NULL RETURNING id, store_id, email_normalized AS email, token_hash, status, expires_at, consumed_at, revoked_at, (SELECT code FROM roles WHERE id = role_id) AS role_code`,
+      [invitationId],
+    );
+    if (result.rowCount === 0) throw new RepositoryError('NOT_FOUND', 'Invitation not found or already revoked');
+    const row = result.rows[0]!;
+    return { id: row.id, storeId: row.store_id, email: row.email, roleCode: row.role_code, tokenHash: row.token_hash, status: row.status, expiresAt: row.expires_at, consumedAt: row.consumed_at, revokedAt: row.revoked_at };
   }
 }
