@@ -9,7 +9,7 @@ describe('AuthController', () => {
         sessions.push(session);
         return session;
       }),
-      validate: jest.fn(async () => null as unknown as { userId: string } | null),
+      validate: jest.fn(async () => null as unknown as { userId: string; sessionId: string } | null),
       touch: jest.fn(async () => true),
       revoke: jest.fn(async () => true),
       revokeAllForUser: jest.fn(async () => undefined),
@@ -86,9 +86,9 @@ describe('AuthController', () => {
     expect(res.cookie).toHaveBeenCalledWith('csrf_token', 'csrf-token', expect.objectContaining({ httpOnly: false, sameSite: 'lax', path: '/' }));
   });
 
-  it('revokes session and clears cookies on logout', async () => {
+  it('revokes the current session and clears cookies on logout', async () => {
     const deps = makeDependencies();
-    deps.sessionService.validate.mockResolvedValueOnce({ userId: 'user-1' });
+    deps.sessionService.validate.mockResolvedValueOnce({ userId: 'user-1', sessionId: 'session-1' });
     const controller = makeController(deps);
     const res = mockResponse();
     const req = { cookies: { commerce_session: 'raw-token' } };
@@ -96,9 +96,33 @@ describe('AuthController', () => {
     const result = await controller.logout(req as never, res as never);
 
     expect(result).toEqual({ data: { accepted: true } });
-    expect(deps.sessionService.revokeAllForUser).toHaveBeenCalledWith('user-1');
+    expect(deps.sessionService.revoke).toHaveBeenCalledWith('session-1');
+    expect(deps.sessionService.revokeAllForUser).not.toHaveBeenCalled();
     expect(res.clearCookie).toHaveBeenCalledWith('commerce_session', expect.anything());
     expect(res.clearCookie).toHaveBeenCalledWith('csrf_token', expect.anything());
+  });
+
+  it('reads session from cookie on GET /session', async () => {
+    const deps = makeDependencies();
+    deps.sessionService.validate.mockResolvedValueOnce({ userId: 'user-1', sessionId: 'session-1' });
+    const controller = makeController(deps);
+    const req = { cookies: { commerce_session: 'raw-token' } };
+
+    const result = await controller.session(req as never);
+
+    expect(result).toEqual({ data: { userId: 'user-1' } });
+    expect(deps.sessionService.validate).toHaveBeenCalledWith('raw-token');
+  });
+
+  it('returns empty session when cookie is missing', async () => {
+    const deps = makeDependencies();
+    const controller = makeController(deps);
+    const req = { cookies: {} };
+
+    const result = await controller.session(req as never);
+
+    expect(result).toEqual({ data: {} });
+    expect(deps.sessionService.validate).not.toHaveBeenCalled();
   });
 
   it('returns generic public response for password reset request', async () => {

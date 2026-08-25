@@ -27,6 +27,6 @@ function validatedConfig(): ApiConfig {
     { provide: COMPROMISED_PASSWORD_CHECKER, useFactory: (config: ApiConfig) => config.NODE_ENV === 'test' ? { isCompromised: async () => false } : new HibpPasswordChecker(), inject: [API_CONFIG] },
     IdentityService,
   ],
-  exports: [IdentityService, IDENTITY_REPOSITORY, DATABASE, EMAIL_DELIVERY, PASSWORD_HASHER, API_CONFIG],
+  exports: [IdentityService, IDENTITY_REPOSITORY, DATABASE, EMAIL_DELIVERY, PASSWORD_HASHER, COMPROMISED_PASSWORD_CHECKER, API_CONFIG],
 })
 export class IdentityModule {}

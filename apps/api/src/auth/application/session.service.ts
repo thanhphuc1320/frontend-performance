@@ -5,6 +5,7 @@ import type { ApiConfig } from '@commerce/config';
 
 export type RequestContext = {
   userId: string;
+  sessionId: string;
   storeId?: string;
   membershipStatus?: string;
   role?: string;
@@ -54,7 +55,7 @@ export class SessionService {
     if (user.status === 'DISABLED') return null;
     if (user.isLocked()) return null;
 
-    return { userId: session.userId };
+    return { userId: session.userId, sessionId: session.id };
   }
 
   async touch(sessionId: string): Promise<boolean> {

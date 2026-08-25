@@ -78,7 +78,7 @@ export class AuthController {
     if (typeof rawToken === 'string' && rawToken) {
       const context = await this.sessionService.validate(rawToken);
       if (context) {
-        await this.sessionService.revokeAllForUser(context.userId);
+        await this.sessionService.revoke(context.sessionId);
       }
     }
     this.clearSessionCookies(res);
@@ -86,12 +86,12 @@ export class AuthController {
   }
 
   @Get('session')
-  async session(@Body() body: { token?: string }): Promise<{ data: { userId?: string } }> {
-    const token = body?.token;
-    if (typeof token !== 'string' || !token) {
+  async session(@Req() req: Request): Promise<{ data: { userId?: string } }> {
+    const rawToken = req.cookies?.[this.config.SESSION_COOKIE_NAME];
+    if (typeof rawToken !== 'string' || !rawToken) {
       return { data: {} };
     }
-    const context = await this.sessionService.validate(token);
+    const context = await this.sessionService.validate(rawToken);
     return { data: context ? { userId: context.userId } : {} };
   }
 

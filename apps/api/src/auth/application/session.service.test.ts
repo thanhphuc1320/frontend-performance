@@ -93,18 +93,19 @@ describe('SessionService', () => {
     expect(absoluteDays).toBeCloseTo(30, 0);
   });
 
-  it('validates a live session and returns a request context with userId', async () => {
+  it('validates a live session and returns a request context with userId and sessionId', async () => {
     const repo = makeSessionRepository();
     const identity = makeIdentityRepository();
     const service = makeService(repo, identity);
 
-    const { rawToken } = await service.create('user-1');
+    const { rawToken, sessionId } = await service.create('user-1');
     identity.findUserById.mockResolvedValueOnce({ id: 'user-1', status: 'ACTIVE', isLocked: () => false });
 
     const context = await service.validate(rawToken);
 
     expect(context).not.toBeNull();
     expect(context?.userId).toBe('user-1');
+    expect(context?.sessionId).toBe(sessionId);
   });
 
   it('rejects an expired session', async () => {

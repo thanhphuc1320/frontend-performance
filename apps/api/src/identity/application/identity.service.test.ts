@@ -11,6 +11,7 @@ function makeDependencies() {
     findUserByEmail: jest.Mock;
     findUserById: jest.Mock;
     updateUser: jest.Mock;
+    updateEmail: jest.Mock;
     createToken: jest.Mock;
     findToken: jest.Mock;
     consumeToken: jest.Mock;
@@ -25,6 +26,7 @@ function makeDependencies() {
     findUserByEmail: jest.fn(async (email: string) => [...users.values()].find((user) => user.email === email) ?? null),
     findUserById: jest.fn(async (id: string) => users.get(id) ?? null),
     updateUser: jest.fn(async (user: User) => users.set(user.id, user)),
+    updateEmail: jest.fn(async () => undefined),
     createToken: jest.fn(async (input: { id: string; userId: string; type: AuthTokenType; hash: string; expiresAt: Date }) => {
       tokens.set(input.hash, { userId: input.userId, type: input.type, expiresAt: input.expiresAt });
       return input;

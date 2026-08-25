@@ -5,10 +5,10 @@ import { SessionService } from './application/session.service';
 import { SessionRepository } from './infrastructure/session.repository';
 import { IdentityModule } from '../identity/identity.module';
 import { DATABASE, PostgresDatabase } from '../infrastructure/database.provider';
-import { API_CONFIG, EMAIL_DELIVERY, IDENTITY_REPOSITORY, PASSWORD_HASHER, SESSION_REVOKER } from '../identity/application/identity.tokens';
+import { API_CONFIG, EMAIL_DELIVERY, IDENTITY_REPOSITORY, PASSWORD_HASHER, SESSION_REVOKER, COMPROMISED_PASSWORD_CHECKER } from '../identity/application/identity.tokens';
 import type { PasswordHasher } from '../identity/application/ports/password-hasher';
+import type { CompromisedPasswordChecker } from '../identity/domain/password-policy';
 import { SESSION_SERVICE } from './application/session.tokens';
-import { IdentityRepository } from '../identity/infrastructure/identity.repository';
 import { RecoveryService } from '../identity/application/recovery.service';
 
 @Module({
@@ -17,12 +17,11 @@ import { RecoveryService } from '../identity/application/recovery.service';
   providers: [
     {
       provide: SESSION_SERVICE,
-      useFactory: (database: PostgresDatabase, config: ReturnType<typeof import('@commerce/config').loadApiConfig>) => {
-        const identityRepository = new IdentityRepository(database);
+      useFactory: (database: PostgresDatabase, config: ReturnType<typeof import('@commerce/config').loadApiConfig>, identityRepository: unknown) => {
         const sessionRepository = new SessionRepository(database);
-        return new SessionService(sessionRepository, identityRepository, config);
+        return new SessionService(sessionRepository, identityRepository as never, config);
       },
-      inject: [DATABASE, API_CONFIG],
+      inject: [DATABASE, API_CONFIG, IDENTITY_REPOSITORY],
     },
     {
       provide: SESSION_REVOKER,
@@ -31,10 +30,10 @@ import { RecoveryService } from '../identity/application/recovery.service';
     },
     {
       provide: RecoveryService,
-      useFactory: (identityRepository: IdentityRepository, passwordHasher: PasswordHasher, emailDelivery: unknown, sessionRevoker: unknown, config: ReturnType<typeof import('@commerce/config').loadApiConfig>) => {
-        return new RecoveryService(identityRepository, passwordHasher, emailDelivery as never, sessionRevoker as never, config);
+      useFactory: (identityRepository: unknown, passwordHasher: PasswordHasher, emailDelivery: unknown, sessionRevoker: unknown, compromisedPasswordChecker: CompromisedPasswordChecker, config: ReturnType<typeof import('@commerce/config').loadApiConfig>) => {
+        return new RecoveryService(identityRepository as never, passwordHasher, emailDelivery as never, sessionRevoker as never, compromisedPasswordChecker, config);
       },
-      inject: [IDENTITY_REPOSITORY, PASSWORD_HASHER, EMAIL_DELIVERY, SESSION_REVOKER, API_CONFIG],
+      inject: [IDENTITY_REPOSITORY, PASSWORD_HASHER, EMAIL_DELIVERY, SESSION_REVOKER, COMPROMISED_PASSWORD_CHECKER, API_CONFIG],
     },
     AuthGuard,
   ],

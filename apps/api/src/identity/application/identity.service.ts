@@ -15,8 +15,9 @@ export type IdentityStore = {
   findUserByEmail(email: string): Promise<User | null>;
   findUserById(id: string): Promise<User | null>;
   updateUser(user: User, executor?: unknown): Promise<void>;
+  updateEmail(userId: string, email: string, executor?: unknown): Promise<void>;
   createToken(input: { id: string; userId: string; type: AuthTokenType; hash: string; expiresAt: Date; email?: string }, executor?: unknown): Promise<unknown>;
-  findToken(hash: string, type: AuthTokenType, executor?: unknown): Promise<{ userId?: string; expiresAt: Date } | null>;
+  findToken(hash: string, type: AuthTokenType, executor?: unknown): Promise<{ userId?: string; expiresAt: Date; email?: string } | null>;
   consumeToken(hash: string, executor?: unknown): Promise<boolean>;
   transaction?<T>(work: (executor: unknown) => Promise<T>): Promise<T>;
 };
