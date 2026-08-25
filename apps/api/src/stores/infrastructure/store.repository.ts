@@ -94,8 +94,8 @@ export class StoreRepository {
     return { id: row.id, storeId: row.store_id, userId: row.user_id, roleCode: row.role_code, status: row.status };
   }
 
-  async findMembership(storeId: string, userId: string): Promise<MembershipRecord | null> {
-    const result = await this.database.query<MembershipRow>(
+  async findMembership(storeId: string, userId: string, executor: Database = this.database): Promise<MembershipRecord | null> {
+    const result = await executor.query<MembershipRow>(
       `SELECT m.id, m.store_id, m.user_id, m.status, r.code AS role_code FROM store_memberships m JOIN roles r ON r.id = m.role_id WHERE m.store_id = $1 AND m.user_id = $2`, [storeId, userId],
     );
     if (result.rowCount === 0) return null;
@@ -103,10 +103,10 @@ export class StoreRepository {
     return { id: row.id, storeId: row.store_id, userId: row.user_id, roleCode: row.role_code, status: row.status };
   }
 
-  async createInvitation(input: { id: string; storeId: string; inviterUserId: string; email: string; roleCode: string; tokenHash: string; expiresAt: Date }): Promise<InvitationRecord> {
+  async createInvitation(input: { id: string; storeId: string; inviterUserId: string; email: string; roleCode: string; tokenHash: string; expiresAt: Date }, executor: Database = this.database): Promise<InvitationRecord> {
     let result;
     try {
-      result = await this.database.query<InvitationRow>(
+      result = await executor.query<InvitationRow>(
         `INSERT INTO invitations (id, store_id, inviter_user_id, email_normalized, role_id, token_hash, expires_at)
          SELECT $1, $2, $3, $4, id, $5, $6 FROM roles WHERE code = $7 RETURNING id, store_id, email_normalized AS email, token_hash, status, expires_at, consumed_at, revoked_at, (SELECT code FROM roles WHERE id = role_id) AS role_code`,
         [input.id, input.storeId, input.inviterUserId, input.email, input.tokenHash, input.expiresAt, input.roleCode],
@@ -117,6 +117,14 @@ export class StoreRepository {
     if (result.rowCount === 0) throw new RepositoryError('NOT_FOUND', 'Role not found');
     const row = result.rows[0]!;
     return { id: row.id, storeId: row.store_id, email: row.email, roleCode: row.role_code, tokenHash: row.token_hash, status: row.status, expiresAt: row.expires_at, consumedAt: row.consumed_at, revokedAt: row.revoked_at };
+  }
+
+  async consumeInvitation(tokenHash: string, executor: Database = this.database): Promise<boolean> {
+    const result = await executor.query(
+      `UPDATE invitations SET status = 'ACCEPTED', consumed_at = now() WHERE token_hash = $1 AND status = 'PENDING' AND consumed_at IS NULL AND revoked_at IS NULL AND expires_at > now()`,
+      [tokenHash],
+    );
+    return result.rowCount === 1;
   }
 
   async findStoreById(storeId: string, executor: Database = this.database): Promise<StoreRecord | null> {

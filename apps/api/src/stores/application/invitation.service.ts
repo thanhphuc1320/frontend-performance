@@ -2,7 +2,7 @@ import { Inject } from '@nestjs/common';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import type { RequestContext } from '../../auth/application/session.service';
 import { ApiError } from '../../http/api-error';
-import type { RoleCode } from '../../authorization/domain/permission';
+import { ROLE_CODES, type RoleCode } from '../../authorization/domain/permission';
 import { STORE_REPOSITORY } from './store.tokens';
 import { IDENTITY_REPOSITORY, EMAIL_DELIVERY } from '../../identity/application/identity.tokens';
 
@@ -48,6 +48,12 @@ function assertCanManage(actorMembership: MembershipRecord | null): void {
   }
 }
 
+function assertValidRoleCode(roleCode: string): asserts roleCode is RoleCode {
+  if (!ROLE_CODES.includes(roleCode as RoleCode)) {
+    throw new ApiError(400, 'INVALID_ROLE_CODE', `Invalid role code: ${roleCode}`);
+  }
+}
+
 export class InvitationService {
   constructor(
     @Inject(STORE_REPOSITORY)
@@ -59,15 +65,17 @@ export class InvitationService {
   ) {}
 
   async invite(context: RequestContext, storeId: string, email: string, roleCode: RoleCode): Promise<InvitationRecord> {
-    return this.repository.transaction(async (executor) => {
+    assertValidRoleCode(roleCode);
+    const rawToken = randomBytes(32).toString('hex');
+    const tokenHash = createHash('sha256').update(rawToken).digest('hex');
+    const expiresAt = new Date(Date.now() + INVITE_TTL_MS);
+
+    const invitation = await this.repository.transaction(async (executor) => {
       const store = await this.repository.findStoreById(storeId, executor);
       assertStoreActive(store);
       const actorMembership = await this.repository.findMembership(storeId, context.userId, executor);
       assertCanManage(actorMembership);
-      const rawToken = randomBytes(32).toString('hex');
-      const tokenHash = createHash('sha256').update(rawToken).digest('hex');
-      const expiresAt = new Date(Date.now() + INVITE_TTL_MS);
-      const invitation = await this.repository.createInvitation({
+      return this.repository.createInvitation({
         id: randomUUID(),
         storeId,
         inviterUserId: context.userId,
@@ -76,17 +84,23 @@ export class InvitationService {
         tokenHash,
         expiresAt,
       }, executor);
-      await this.emailDelivery.sendInvitation({
-        recipient: email,
-        actionUrl: `/invitations/accept?token=${rawToken}`,
-        templateData: { email, storeId, roleCode },
-      });
-      return invitation;
     });
+
+    await this.emailDelivery.sendInvitation({
+      recipient: email,
+      actionUrl: `/invitations/accept?token=${rawToken}`,
+      templateData: { email, storeId, roleCode },
+    });
+
+    return invitation;
   }
 
   async resend(context: RequestContext, storeId: string, invitationId: string): Promise<InvitationRecord> {
-    return this.repository.transaction(async (executor) => {
+    const rawToken = randomBytes(32).toString('hex');
+    const tokenHash = createHash('sha256').update(rawToken).digest('hex');
+    const expiresAt = new Date(Date.now() + INVITE_TTL_MS);
+
+    const invitation = await this.repository.transaction(async (executor) => {
       const store = await this.repository.findStoreById(storeId, executor);
       assertStoreActive(store);
       const actorMembership = await this.repository.findMembership(storeId, context.userId, executor);
@@ -99,10 +113,7 @@ export class InvitationService {
         throw new ApiError(400, 'INVITATION_NOT_PENDING', 'Invitation is not pending');
       }
       await this.repository.revokeInvitation(invitationId, executor);
-      const rawToken = randomBytes(32).toString('hex');
-      const tokenHash = createHash('sha256').update(rawToken).digest('hex');
-      const expiresAt = new Date(Date.now() + INVITE_TTL_MS);
-      const invitation = await this.repository.createInvitation({
+      return this.repository.createInvitation({
         id: randomUUID(),
         storeId,
         inviterUserId: context.userId,
@@ -111,13 +122,15 @@ export class InvitationService {
         tokenHash,
         expiresAt,
       }, executor);
-      await this.emailDelivery.sendInvitation({
-        recipient: existing.email,
-        actionUrl: `/invitations/accept?token=${rawToken}`,
-        templateData: { email: existing.email, storeId, roleCode: existing.roleCode },
-      });
-      return invitation;
     });
+
+    await this.emailDelivery.sendInvitation({
+      recipient: invitation.email,
+      actionUrl: `/invitations/accept?token=${rawToken}`,
+      templateData: { email: invitation.email, storeId, roleCode: invitation.roleCode },
+    });
+
+    return invitation;
   }
 
   async revoke(context: RequestContext, storeId: string, invitationId: string): Promise<InvitationRecord> {

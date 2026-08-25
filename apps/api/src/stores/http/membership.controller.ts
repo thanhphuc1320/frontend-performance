@@ -4,8 +4,17 @@ import { AuthGuard } from '../../auth/http/auth.guard';
 import type { RequestContext } from '../../auth/application/session.service';
 import { MembershipService } from '../application/membership.service';
 import { InvitationService } from '../application/invitation.service';
+import { ApiError } from '../../http/api-error';
+import { ROLE_CODES, type RoleCode } from '../../authorization/domain/permission';
 
 type AuthenticatedRequest = Request & { userId?: string; context?: Record<string, unknown> };
+
+function validateRoleCode(roleCode: string): RoleCode {
+  if (!ROLE_CODES.includes(roleCode as RoleCode)) {
+    throw new ApiError(400, 'INVALID_ROLE_CODE', `Invalid role code: ${roleCode}`);
+  }
+  return roleCode as RoleCode;
+}
 
 @UseGuards(AuthGuard)
 @Controller('api/v1')
@@ -37,12 +46,12 @@ export class MembershipController {
 
   @Patch('stores/:storeId/members/:userId/role')
   async changeRole(@Req() request: AuthenticatedRequest, @Param('storeId') storeId: string, @Param('userId') userId: string, @Body() body: { roleCode: string }) {
-    return { data: await this.membershipService.changeRole(this.context(request), storeId, userId, body.roleCode as never) };
+    return { data: await this.membershipService.changeRole(this.context(request), storeId, userId, validateRoleCode(body.roleCode)) };
   }
 
   @Post('stores/:storeId/invitations')
   async invite(@Req() request: AuthenticatedRequest, @Param('storeId') storeId: string, @Body() body: { email: string; roleCode: string }) {
-    return { data: await this.invitationService.invite(this.context(request), storeId, body.email, body.roleCode as never) };
+    return { data: await this.invitationService.invite(this.context(request), storeId, body.email, validateRoleCode(body.roleCode)) };
   }
 
   @Post('stores/:storeId/invitations/:invitationId/resend')
@@ -57,6 +66,9 @@ export class MembershipController {
 
   @Post('invitations/accept')
   async accept(@Req() request: AuthenticatedRequest, @Body() body: { token: string }) {
+    if (typeof body?.token !== 'string' || !body.token.trim()) {
+      throw new ApiError(400, 'VALIDATION_ERROR', 'Invitation token is required');
+    }
     return { data: await this.invitationService.accept(body.token, this.userId(request)) };
   }
 

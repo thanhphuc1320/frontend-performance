@@ -1,7 +1,7 @@
 import { Inject } from '@nestjs/common';
 import type { RequestContext } from '../../auth/application/session.service';
 import { ApiError } from '../../http/api-error';
-import type { RoleCode } from '../../authorization/domain/permission';
+import { ROLE_CODES, type RoleCode } from '../../authorization/domain/permission';
 import { STORE_REPOSITORY } from './store.tokens';
 
 export type MembershipRecord = { id: string; storeId: string; userId: string; roleCode: string; status: string };
@@ -42,6 +42,12 @@ function assertValidStatus(currentStatus: string, nextStatus: string): void {
   }
 }
 
+function assertValidRoleCode(roleCode: string): asserts roleCode is RoleCode {
+  if (!ROLE_CODES.includes(roleCode as RoleCode)) {
+    throw new ApiError(400, 'INVALID_ROLE_CODE', `Invalid role code: ${roleCode}`);
+  }
+}
+
 export class MembershipService {
   constructor(
     @Inject(STORE_REPOSITORY)
@@ -70,6 +76,7 @@ export class MembershipService {
   }
 
   async changeRole(context: RequestContext, storeId: string, userId: string, roleCode: RoleCode): Promise<MembershipRecord> {
+    assertValidRoleCode(roleCode);
     return this.repository.transaction(async (executor) => {
       const store = await this.repository.findStoreById(storeId, executor);
       assertStoreActive(store);
@@ -128,7 +135,7 @@ export class MembershipService {
 
   private async acquireAdvisoryLock(storeId: string, executor: unknown): Promise<void> {
     const db = executor as { query(text: string, values?: readonly unknown[]): Promise<unknown> };
-    await db.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [storeId]);
+    await db.query('SELECT pg_advisory_xact_lock(hashtext($1::text))', [storeId]);
   }
 
   private async recheckActorMembership(storeId: string, userId: string, executor: unknown): Promise<void> {

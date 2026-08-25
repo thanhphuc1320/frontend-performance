@@ -1,5 +1,5 @@
 import type { RequestContext } from '../../auth/application/session.service';
-import { MembershipService } from './membership.service';
+import { MembershipService, type MembershipRepository } from './membership.service';
 
 describe('MembershipService', () => {
   function makeRepository() {
@@ -23,7 +23,7 @@ describe('MembershipService', () => {
     const repo = makeRepository();
     repo.findStoreById.mockResolvedValueOnce({ id: 's1', status: 'ACTIVE' });
     repo.findMembership.mockResolvedValueOnce({ id: 'm1', storeId: 's1', userId: 'actor-1', roleCode: 'STAFF', status: 'ACTIVE' });
-    const service = new MembershipService(repo as never);
+    const service = new MembershipService(repo as unknown as MembershipRepository);
 
     const result = await service.leave(makeContext(), 's1');
 
@@ -34,7 +34,7 @@ describe('MembershipService', () => {
   it('rejects leave when Store is deactivated', async () => {
     const repo = makeRepository();
     repo.findStoreById.mockResolvedValueOnce({ id: 's1', status: 'DEACTIVATED' });
-    const service = new MembershipService(repo as never);
+    const service = new MembershipService(repo as unknown as MembershipRepository);
 
     await expect(service.leave(makeContext(), 's1')).rejects.toMatchObject({ status: 403, code: 'STORE_ACCESS_DENIED' });
   });
@@ -43,7 +43,7 @@ describe('MembershipService', () => {
     const repo = makeRepository();
     repo.findStoreById.mockResolvedValueOnce({ id: 's1', status: 'ACTIVE' });
     repo.findMembership.mockResolvedValueOnce(null);
-    const service = new MembershipService(repo as never);
+    const service = new MembershipService(repo as unknown as MembershipRepository);
 
     await expect(service.leave(makeContext(), 's1')).rejects.toMatchObject({ status: 403, code: 'STORE_ACCESS_DENIED' });
   });
@@ -54,7 +54,7 @@ describe('MembershipService', () => {
     repo.findMembership.mockResolvedValueOnce({ id: 'actor-m', storeId: 's1', userId: 'actor-1', roleCode: 'OWNER', status: 'ACTIVE' });
     repo.findMembership.mockResolvedValueOnce({ id: 'm2', storeId: 's1', userId: 'u2', roleCode: 'STAFF', status: 'ACTIVE' });
     repo.findMembership.mockResolvedValueOnce({ id: 'actor-m', storeId: 's1', userId: 'actor-1', roleCode: 'OWNER', status: 'ACTIVE' });
-    const service = new MembershipService(repo as never);
+    const service = new MembershipService(repo as unknown as MembershipRepository);
 
     const result = await service.suspend(makeContext(), 's1', 'u2');
 
@@ -68,7 +68,7 @@ describe('MembershipService', () => {
     repo.findMembership.mockResolvedValueOnce({ id: 'actor-m', storeId: 's1', userId: 'actor-1', roleCode: 'ADMIN', status: 'ACTIVE' });
     repo.findMembership.mockResolvedValueOnce({ id: 'm2', storeId: 's1', userId: 'u2', roleCode: 'STAFF', status: 'ACTIVE' });
     repo.findMembership.mockResolvedValueOnce({ id: 'actor-m', storeId: 's1', userId: 'actor-1', roleCode: 'ADMIN', status: 'ACTIVE' });
-    const service = new MembershipService(repo as never);
+    const service = new MembershipService(repo as unknown as MembershipRepository);
 
     await expect(service.suspend(makeContext(), 's1', 'u2')).resolves.toMatchObject({ status: 'SUSPENDED' });
   });
@@ -77,7 +77,7 @@ describe('MembershipService', () => {
     const repo = makeRepository();
     repo.findStoreById.mockResolvedValueOnce({ id: 's1', status: 'ACTIVE' });
     repo.findMembership.mockResolvedValueOnce({ id: 'actor-m', storeId: 's1', userId: 'actor-1', roleCode: 'STAFF', status: 'ACTIVE' });
-    const service = new MembershipService(repo as never);
+    const service = new MembershipService(repo as unknown as MembershipRepository);
 
     await expect(service.suspend(makeContext(), 's1', 'u2')).rejects.toMatchObject({ status: 403, code: 'MEMBERSHIP_MANAGE_FORBIDDEN' });
   });
@@ -88,7 +88,7 @@ describe('MembershipService', () => {
     repo.findMembership.mockResolvedValueOnce({ id: 'actor-m', storeId: 's1', userId: 'actor-1', roleCode: 'OWNER', status: 'ACTIVE' });
     repo.findMembership.mockResolvedValueOnce({ id: 'm2', storeId: 's1', userId: 'u2', roleCode: 'OWNER', status: 'ACTIVE' });
     repo.countActiveOwners.mockResolvedValueOnce(1);
-    const service = new MembershipService(repo as never);
+    const service = new MembershipService(repo as unknown as MembershipRepository);
 
     await expect(service.suspend(makeContext(), 's1', 'u2')).rejects.toMatchObject({ status: 409, code: 'FINAL_OWNER_PROTECTED' });
   });
@@ -99,7 +99,7 @@ describe('MembershipService', () => {
     repo.findMembership.mockResolvedValueOnce({ id: 'actor-m', storeId: 's1', userId: 'actor-1', roleCode: 'OWNER', status: 'ACTIVE' });
     repo.findMembership.mockResolvedValueOnce({ id: 'm2', storeId: 's1', userId: 'u2', roleCode: 'STAFF', status: 'ACTIVE' });
     repo.findMembership.mockResolvedValueOnce({ id: 'actor-m', storeId: 's1', userId: 'actor-1', roleCode: 'OWNER', status: 'ACTIVE' });
-    const service = new MembershipService(repo as never);
+    const service = new MembershipService(repo as unknown as MembershipRepository);
 
     const result = await service.remove(makeContext(), 's1', 'u2');
 
@@ -112,7 +112,7 @@ describe('MembershipService', () => {
     repo.findMembership.mockResolvedValueOnce({ id: 'actor-m', storeId: 's1', userId: 'actor-1', roleCode: 'OWNER', status: 'ACTIVE' });
     repo.findMembership.mockResolvedValueOnce({ id: 'm2', storeId: 's1', userId: 'u2', roleCode: 'OWNER', status: 'ACTIVE' });
     repo.countActiveOwners.mockResolvedValueOnce(1);
-    const service = new MembershipService(repo as never);
+    const service = new MembershipService(repo as unknown as MembershipRepository);
 
     await expect(service.remove(makeContext(), 's1', 'u2')).rejects.toMatchObject({ status: 409, code: 'FINAL_OWNER_PROTECTED' });
   });
@@ -123,12 +123,19 @@ describe('MembershipService', () => {
     repo.findMembership.mockResolvedValueOnce({ id: 'actor-m', storeId: 's1', userId: 'actor-1', roleCode: 'OWNER', status: 'ACTIVE' });
     repo.findMembership.mockResolvedValueOnce({ id: 'm2', storeId: 's1', userId: 'u2', roleCode: 'STAFF', status: 'ACTIVE' });
     repo.findMembership.mockResolvedValueOnce({ id: 'actor-m', storeId: 's1', userId: 'actor-1', roleCode: 'OWNER', status: 'ACTIVE' });
-    const service = new MembershipService(repo as never);
+    const service = new MembershipService(repo as unknown as MembershipRepository);
 
     const result = await service.changeRole(makeContext(), 's1', 'u2', 'ADMIN');
 
     expect(result.roleCode).toBe('ADMIN');
     expect(repo.updateMembershipRole).toHaveBeenCalledWith('m2', 'ADMIN', expect.anything());
+  });
+
+  it('rejects role change with invalid role code', async () => {
+    const repo = makeRepository();
+    const service = new MembershipService(repo as unknown as MembershipRepository);
+
+    await expect(service.changeRole(makeContext(), 's1', 'u2', 'INVALID_ROLE' as unknown as 'ADMIN')).rejects.toMatchObject({ status: 400, code: 'INVALID_ROLE_CODE' });
   });
 
   it('rejects role change that would leave zero active Owners', async () => {
@@ -137,7 +144,7 @@ describe('MembershipService', () => {
     repo.findMembership.mockResolvedValueOnce({ id: 'actor-m', storeId: 's1', userId: 'actor-1', roleCode: 'OWNER', status: 'ACTIVE' });
     repo.findMembership.mockResolvedValueOnce({ id: 'm2', storeId: 's1', userId: 'u2', roleCode: 'OWNER', status: 'ACTIVE' });
     repo.countActiveOwners.mockResolvedValueOnce(1);
-    const service = new MembershipService(repo as never);
+    const service = new MembershipService(repo as unknown as MembershipRepository);
 
     await expect(service.changeRole(makeContext(), 's1', 'u2', 'ADMIN')).rejects.toMatchObject({ status: 409, code: 'FINAL_OWNER_PROTECTED' });
   });
@@ -148,7 +155,7 @@ describe('MembershipService', () => {
     repo.findMembership.mockResolvedValueOnce({ id: 'actor-m', storeId: 's1', userId: 'actor-1', roleCode: 'OWNER', status: 'ACTIVE' });
     repo.findMembership.mockResolvedValueOnce({ id: 'actor-m', storeId: 's1', userId: 'actor-1', roleCode: 'OWNER', status: 'ACTIVE' });
     repo.countActiveOwners.mockResolvedValueOnce(1);
-    const service = new MembershipService(repo as never);
+    const service = new MembershipService(repo as unknown as MembershipRepository);
 
     await expect(service.changeRole(makeContext(), 's1', 'actor-1', 'ADMIN')).rejects.toMatchObject({ status: 409, code: 'FINAL_OWNER_PROTECTED' });
   });
@@ -160,7 +167,7 @@ describe('MembershipService', () => {
     repo.findMembership.mockResolvedValueOnce({ id: 'm2', storeId: 's1', userId: 'u2', roleCode: 'STAFF', status: 'ACTIVE' });
     // After performing the update, recheck actor membership
     repo.findMembership.mockResolvedValueOnce(null);
-    const service = new MembershipService(repo as never);
+    const service = new MembershipService(repo as unknown as MembershipRepository);
 
     await expect(service.suspend(makeContext(), 's1', 'u2')).rejects.toMatchObject({ status: 403, code: 'MEMBERSHIP_REVOKED' });
   });
@@ -173,7 +180,7 @@ describe('MembershipService', () => {
       { id: 'm1', storeId: 's1', userId: 'actor-1', roleCode: 'OWNER', status: 'ACTIVE' },
       { id: 'm2', storeId: 's1', userId: 'u2', roleCode: 'STAFF', status: 'ACTIVE' },
     ]);
-    const service = new MembershipService(repo as never);
+    const service = new MembershipService(repo as unknown as MembershipRepository);
 
     const result = await service.list(makeContext(), 's1');
 
@@ -185,7 +192,7 @@ describe('MembershipService', () => {
     const repo = makeRepository();
     repo.findStoreById.mockResolvedValueOnce({ id: 's1', status: 'ACTIVE' });
     repo.findMembership.mockResolvedValueOnce(null);
-    const service = new MembershipService(repo as never);
+    const service = new MembershipService(repo as unknown as MembershipRepository);
 
     await expect(service.list(makeContext(), 's1')).rejects.toMatchObject({ status: 403, code: 'STORE_ACCESS_DENIED' });
   });
