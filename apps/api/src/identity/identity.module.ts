@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
 import { IdentityService } from './application/identity.service';
-import { AuthController } from '../auth/http/auth.controller';
 import { DATABASE, PostgresDatabase } from '../infrastructure/database.provider';
 import { IdentityRepository } from './infrastructure/identity.repository';
 import { MemoryEmailDelivery } from './infrastructure/test-adapters';
@@ -19,7 +18,6 @@ function validatedConfig(): ApiConfig {
 }
 
 @Module({
-  controllers: [AuthController],
   providers: [
     { provide: API_CONFIG, useFactory: validatedConfig },
     { provide: DATABASE, useFactory: (config: ApiConfig) => new PostgresDatabase(config.DATABASE_URL), inject: [API_CONFIG] },
@@ -29,6 +27,6 @@ function validatedConfig(): ApiConfig {
     { provide: COMPROMISED_PASSWORD_CHECKER, useFactory: (config: ApiConfig) => config.NODE_ENV === 'test' ? { isCompromised: async () => false } : new HibpPasswordChecker(), inject: [API_CONFIG] },
     IdentityService,
   ],
-  exports: [IdentityService, IDENTITY_REPOSITORY, DATABASE, EMAIL_DELIVERY, API_CONFIG],
+  exports: [IdentityService, IDENTITY_REPOSITORY, DATABASE, EMAIL_DELIVERY, PASSWORD_HASHER, API_CONFIG],
 })
 export class IdentityModule {}

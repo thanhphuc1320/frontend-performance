@@ -5,10 +5,10 @@ import { mapConflict } from '../../persistence/repository-error';
 type QueryResult<T> = { rows: T[]; rowCount: number | null };
 type Executor = { query<T>(text: string, values?: readonly unknown[]): Promise<QueryResult<T>> };
 type Database = Executor & { acquire?: () => Promise<Executor & { release(): void }> };
-type UserRow = { id: string; email_normalized: string; password_hash: string; status: UserStatus; lock_until: Date | null };
+type UserRow = { id: string; email_normalized: string; password_hash: string; status: UserStatus; lock_until: Date | null; failed_login_attempts: number };
 
 function toUser(row: UserRow): User {
-  return new User(row.id, row.email_normalized, row.password_hash, row.status, row.lock_until ?? undefined);
+  return new User(row.id, row.email_normalized, row.password_hash, row.status, row.lock_until ?? undefined, row.failed_login_attempts);
 }
 
 export class IdentityRepository {
@@ -44,7 +44,7 @@ export class IdentityRepository {
     try {
       const result = await executor.query<UserRow>(
         `INSERT INTO users (id, email_normalized, password_hash) VALUES ($1, $2, $3)
-         RETURNING id, email_normalized, password_hash, status, lock_until`,
+         RETURNING id, email_normalized, password_hash, status, lock_until, failed_login_attempts`,
         [input.id, input.email, input.passwordHash],
       );
       return toUser(result.rows[0]!);
@@ -55,22 +55,22 @@ export class IdentityRepository {
 
   async findUserByEmail(email: string): Promise<User | null> {
     const result = await this.database.query<UserRow>(
-      'SELECT id, email_normalized, password_hash, status, lock_until FROM users WHERE email_normalized = $1', [email],
+      'SELECT id, email_normalized, password_hash, status, lock_until, failed_login_attempts FROM users WHERE email_normalized = $1', [email],
     );
     return result.rowCount === 0 ? null : toUser(result.rows[0]!);
   }
 
   async findUserById(id: string): Promise<User | null> {
     const result = await this.database.query<UserRow>(
-      'SELECT id, email_normalized, password_hash, status, lock_until FROM users WHERE id = $1', [id],
+      'SELECT id, email_normalized, password_hash, status, lock_until, failed_login_attempts FROM users WHERE id = $1', [id],
     );
     return result.rowCount === 0 ? null : toUser(result.rows[0]!);
   }
 
   async updateUser(user: User, executor: Executor = this.database): Promise<void> {
     await executor.query(
-      `UPDATE users SET status = $2, lock_until = $3, email_verified_at = CASE WHEN $2 = 'ACTIVE' THEN COALESCE(email_verified_at, now()) ELSE email_verified_at END, updated_at = now() WHERE id = $1`,
-      [user.id, user.status, user.lockUntil],
+      `UPDATE users SET status = $2, lock_until = $3, failed_login_attempts = $4, email_verified_at = CASE WHEN $2 = 'ACTIVE' THEN COALESCE(email_verified_at, now()) ELSE email_verified_at END, updated_at = now() WHERE id = $1`,
+      [user.id, user.status, user.lockUntil, user.failedLoginAttempts],
     );
   }
 

@@ -20,12 +20,14 @@
     "@nestjs/core": "^11.1.6",
     "@nestjs/platform-express": "^11.1.6",
     "argon2": "^0.45.1",
+    "cookie-parser": "^1.4.7",
     "nodemailer": "^9.0.5",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2"
   },
   "devDependencies": {
     "@nestjs/testing": "^11.1.6",
+    "@types/cookie-parser": "^1.4.10",
     "@types/express": "^5.0.3",
     "@types/jest": "^29.5.14",
     "@types/node": "^24.3.0",

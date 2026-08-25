@@ -50,5 +50,44 @@ describe('User', () => {
     user.disable();
     expect(user.status).toBe(UserStatus.DISABLED);
     expect(() => user.verifyEmail()).toThrow('Invalid user transition');
+    expect(() => user.recordSuccessfulLogin()).toThrow('Invalid user transition');
+  });
+
+  it('allows unverified users to record successful login without changing status', () => {
+    const user = new User('user-1', 'alice@example.com', 'password-hash');
+    user.recordFailedLogin(5);
+
+    user.recordSuccessfulLogin();
+
+    expect(user.status).toBe(UserStatus.UNVERIFIED);
+    expect(user.failedLoginAttempts).toBe(0);
+  });
+
+  it('tracks failed login attempts and locks after threshold', () => {
+    const user = User.active('user-1', 'alice@example.com', 'password-hash');
+
+    expect(user.failedLoginAttempts).toBe(0);
+    user.recordFailedLogin(5);
+    expect(user.failedLoginAttempts).toBe(1);
+    user.recordFailedLogin(5);
+    expect(user.failedLoginAttempts).toBe(2);
+    user.recordFailedLogin(5);
+    user.recordFailedLogin(5);
+    user.recordFailedLogin(5);
+    expect(user.failedLoginAttempts).toBe(5);
+    expect(user.status).toBe(UserStatus.TEMPORARILY_LOCKED);
+    expect(user.isLocked()).toBe(true);
+  });
+
+  it('resets failed attempts on successful login', () => {
+    const user = User.active('user-1', 'alice@example.com', 'password-hash');
+    user.recordFailedLogin(5);
+    user.recordFailedLogin(5);
+    expect(user.failedLoginAttempts).toBe(2);
+
+    user.recordSuccessfulLogin();
+
+    expect(user.failedLoginAttempts).toBe(0);
+    expect(user.status).toBe(UserStatus.ACTIVE);
   });
 });

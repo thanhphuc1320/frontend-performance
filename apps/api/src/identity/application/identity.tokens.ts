@@ -3,3 +3,4 @@ export const EMAIL_DELIVERY = Symbol('EMAIL_DELIVERY');
 export const PASSWORD_HASHER = Symbol('PASSWORD_HASHER');
 export const COMPROMISED_PASSWORD_CHECKER = Symbol('COMPROMISED_PASSWORD_CHECKER');
 export const API_CONFIG = Symbol('API_CONFIG');
+export const SESSION_REVOKER = Symbol('SESSION_REVOKER');

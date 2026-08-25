@@ -1,9 +1,11 @@
-import { Body, Controller, Get, Headers, HttpCode, Param, Post, Req, UnauthorizedException } from '@nestjs/common';
+import { Body, Controller, Get, Headers, HttpCode, Param, Post, Req, UnauthorizedException, UseGuards } from '@nestjs/common';
 import type { Request } from 'express';
 import { StoreService } from '../application/store.service';
+import { AuthGuard } from '../../auth/http/auth.guard';
 
 type AuthenticatedRequest = Request & { userId?: string };
 
+@UseGuards(AuthGuard)
 @Controller('api/v1/stores')
 export class StoreController {
   constructor(private readonly stores: StoreService) {}

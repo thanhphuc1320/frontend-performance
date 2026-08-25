@@ -10,6 +10,7 @@ const TEMPORARY_LOCKOUT_MS = 15 * 60 * 1000;
 export class User {
   private _status: UserStatus;
   private _lockUntil: Date | null;
+  private _failedLoginAttempts: number;
 
   constructor(
     public readonly id: string,
@@ -17,11 +18,13 @@ export class User {
     public readonly passwordHash: string,
     status: UserStatus = UserStatus.UNVERIFIED,
     lockUntil?: Date,
+    failedLoginAttempts = 0,
   ) {
     this._status = status;
     this._lockUntil = status === UserStatus.TEMPORARILY_LOCKED
       ? lockUntil ?? new Date(Date.now() + TEMPORARY_LOCKOUT_MS)
       : null;
+    this._failedLoginAttempts = failedLoginAttempts;
   }
 
   static active(id: string, email: string, passwordHash: string): User {
@@ -34,6 +37,10 @@ export class User {
 
   get lockUntil(): Date | null {
     return this._lockUntil === null ? null : new Date(this._lockUntil);
+  }
+
+  get failedLoginAttempts(): number {
+    return this._failedLoginAttempts;
   }
 
   verifyEmail(): void {
@@ -60,11 +67,21 @@ export class User {
     if (this.isLocked(now)) {
       throw new Error('User is temporarily locked');
     }
-    if (this._status !== UserStatus.ACTIVE && this._status !== UserStatus.TEMPORARILY_LOCKED) {
+    if (this._status === UserStatus.DISABLED) {
       throw new Error('Invalid user transition');
     }
-    this._status = UserStatus.ACTIVE;
     this._lockUntil = null;
+    this._failedLoginAttempts = 0;
+    if (this._status === UserStatus.TEMPORARILY_LOCKED) {
+      this._status = UserStatus.ACTIVE;
+    }
+  }
+
+  recordFailedLogin(maxAttempts: number, now: Date = new Date()): void {
+    this._failedLoginAttempts += 1;
+    if (this._failedLoginAttempts >= maxAttempts) {
+      this.lockTemporarily(now);
+    }
   }
 
   disable(): void {
