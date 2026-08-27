@@ -1,7 +1,7 @@
 import { Inject } from '@nestjs/common';
 import type { RequestContext } from '../../auth/application/session.service';
 import { ApiError } from '../../http/api-error';
-import { ROLE_CODES, type RoleCode } from '../../authorization/domain/permission';
+import { ROLE_CODES, type PermissionCode, type RoleCode } from '../../authorization/domain/permission';
 import { STORE_REPOSITORY } from './store.tokens';
 
 export type MembershipRecord = { id: string; storeId: string; userId: string; roleCode: string; status: string };
@@ -28,6 +28,12 @@ function assertStoreActive(store: StoreRecord | null): void {
 function assertCanManage(actorMembership: MembershipRecord | null): void {
   if (!actorMembership || !MANAGING_ROLES.includes(actorMembership.roleCode) || actorMembership.status !== 'ACTIVE') {
     throw new ApiError(403, 'MEMBERSHIP_MANAGE_FORBIDDEN', 'Membership management forbidden');
+  }
+}
+
+function assertHasPermission(context: RequestContext, permission: PermissionCode): void {
+  if (!context.permissions?.includes(permission)) {
+    throw new ApiError(403, 'PERMISSION_DENIED', 'Permission denied');
   }
 }
 
@@ -77,6 +83,7 @@ export class MembershipService {
 
   async changeRole(context: RequestContext, storeId: string, userId: string, roleCode: RoleCode): Promise<MembershipRecord> {
     assertValidRoleCode(roleCode);
+    assertHasPermission(context, 'members.manage');
     return this.repository.transaction(async (executor) => {
       const store = await this.repository.findStoreById(storeId, executor);
       assertStoreActive(store);
@@ -110,6 +117,7 @@ export class MembershipService {
   }
 
   private async mutateMembership(context: RequestContext, storeId: string, userId: string, nextStatus: string): Promise<MembershipRecord> {
+    assertHasPermission(context, 'members.manage');
     return this.repository.transaction(async (executor) => {
       const store = await this.repository.findStoreById(storeId, executor);
       assertStoreActive(store);

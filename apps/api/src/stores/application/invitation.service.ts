@@ -2,7 +2,7 @@ import { Inject } from '@nestjs/common';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import type { RequestContext } from '../../auth/application/session.service';
 import { ApiError } from '../../http/api-error';
-import { ROLE_CODES, type RoleCode } from '../../authorization/domain/permission';
+import { ROLE_CODES, type PermissionCode, type RoleCode } from '../../authorization/domain/permission';
 import { STORE_REPOSITORY } from './store.tokens';
 import { IDENTITY_REPOSITORY, EMAIL_DELIVERY } from '../../identity/application/identity.tokens';
 
@@ -48,6 +48,12 @@ function assertCanManage(actorMembership: MembershipRecord | null): void {
   }
 }
 
+function assertHasPermission(context: RequestContext, permission: PermissionCode): void {
+  if (!context.permissions?.includes(permission)) {
+    throw new ApiError(403, 'PERMISSION_DENIED', 'Permission denied');
+  }
+}
+
 function assertValidRoleCode(roleCode: string): asserts roleCode is RoleCode {
   if (!ROLE_CODES.includes(roleCode as RoleCode)) {
     throw new ApiError(400, 'INVALID_ROLE_CODE', `Invalid role code: ${roleCode}`);
@@ -66,6 +72,7 @@ export class InvitationService {
 
   async invite(context: RequestContext, storeId: string, email: string, roleCode: RoleCode): Promise<InvitationRecord> {
     assertValidRoleCode(roleCode);
+    assertHasPermission(context, 'members.invite');
     const rawToken = randomBytes(32).toString('hex');
     const tokenHash = createHash('sha256').update(rawToken).digest('hex');
     const expiresAt = new Date(Date.now() + INVITE_TTL_MS);
@@ -96,6 +103,7 @@ export class InvitationService {
   }
 
   async resend(context: RequestContext, storeId: string, invitationId: string): Promise<InvitationRecord> {
+    assertHasPermission(context, 'members.invite');
     const rawToken = randomBytes(32).toString('hex');
     const tokenHash = createHash('sha256').update(rawToken).digest('hex');
     const expiresAt = new Date(Date.now() + INVITE_TTL_MS);
@@ -134,6 +142,7 @@ export class InvitationService {
   }
 
   async revoke(context: RequestContext, storeId: string, invitationId: string): Promise<InvitationRecord> {
+    assertHasPermission(context, 'members.manage');
     return this.repository.transaction(async (executor) => {
       const store = await this.repository.findStoreById(storeId, executor);
       assertStoreActive(store);

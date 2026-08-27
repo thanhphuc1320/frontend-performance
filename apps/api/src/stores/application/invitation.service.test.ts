@@ -37,6 +37,10 @@ describe('InvitationService', () => {
     return { userId: 'actor-1', sessionId: 'session-1', ...overrides };
   }
 
+  function makeOwnerContext(): RequestContext {
+    return makeContext({ role: 'OWNER', permissions: ['members.manage', 'members.invite', 'store.deactivate'] });
+  }
+
   it('creates an invitation with 7-day expiry and hashed token', async () => {
     const repo = makeRepository();
     const identity = makeIdentity();
@@ -45,7 +49,7 @@ describe('InvitationService', () => {
     repo.findMembership.mockResolvedValueOnce({ id: 'actor-m', storeId: 's1', userId: 'actor-1', roleCode: 'OWNER', status: 'ACTIVE' });
     const service = new InvitationService(repo as unknown as InvitationRepository, identity, email);
 
-    const result = await service.invite(makeContext(), 's1', 'invitee@example.com', 'STAFF');
+    const result = await service.invite(makeOwnerContext(), 's1', 'invitee@example.com', 'STAFF');
 
     expect(result.status).toBe('PENDING');
     const created = (repo.createInvitation.mock.calls[0] as unknown as [{ storeId: string; email: string; roleCode: string; tokenHash: string; expiresAt: Date }])[0];
@@ -63,7 +67,7 @@ describe('InvitationService', () => {
     repo.findStoreById.mockResolvedValueOnce({ id: 's1', status: 'DEACTIVATED' });
     const service = new InvitationService(repo as unknown as InvitationRepository, makeIdentity(), makeEmailDelivery());
 
-    await expect(service.invite(makeContext(), 's1', 'invitee@example.com', 'STAFF')).rejects.toMatchObject({ status: 403, code: 'STORE_ACCESS_DENIED' });
+    await expect(service.invite(makeOwnerContext(), 's1', 'invitee@example.com', 'STAFF')).rejects.toMatchObject({ status: 403, code: 'STORE_ACCESS_DENIED' });
   });
 
   it('rejects invitation by non-Owner/Admin', async () => {
@@ -72,7 +76,7 @@ describe('InvitationService', () => {
     repo.findMembership.mockResolvedValueOnce({ id: 'actor-m', storeId: 's1', userId: 'actor-1', roleCode: 'STAFF', status: 'ACTIVE' });
     const service = new InvitationService(repo as unknown as InvitationRepository, makeIdentity(), makeEmailDelivery());
 
-    await expect(service.invite(makeContext(), 's1', 'invitee@example.com', 'STAFF')).rejects.toMatchObject({ status: 403, code: 'MEMBERSHIP_MANAGE_FORBIDDEN' });
+    await expect(service.invite(makeContext({ permissions: ['members.invite'] }), 's1', 'invitee@example.com', 'STAFF')).rejects.toMatchObject({ status: 403, code: 'MEMBERSHIP_MANAGE_FORBIDDEN' });
   });
 
   it('rejects invitation with invalid role code', async () => {
@@ -81,7 +85,7 @@ describe('InvitationService', () => {
     repo.findMembership.mockResolvedValueOnce({ id: 'actor-m', storeId: 's1', userId: 'actor-1', roleCode: 'OWNER', status: 'ACTIVE' });
     const service = new InvitationService(repo as unknown as InvitationRepository, makeIdentity(), makeEmailDelivery());
 
-    await expect(service.invite(makeContext(), 's1', 'invitee@example.com', 'INVALID_ROLE' as unknown as 'STAFF')).rejects.toMatchObject({ status: 400, code: 'INVALID_ROLE_CODE' });
+    await expect(service.invite(makeOwnerContext(), 's1', 'invitee@example.com', 'INVALID_ROLE' as unknown as 'STAFF')).rejects.toMatchObject({ status: 400, code: 'INVALID_ROLE_CODE' });
   });
 
   it('revokes an existing invitation and creates a new one on resend', async () => {
@@ -93,7 +97,7 @@ describe('InvitationService', () => {
     repo.findInvitationById.mockResolvedValueOnce({ id: 'inv1', storeId: 's1', email: 'invitee@example.com', roleCode: 'STAFF', tokenHash: 'oldhash', status: 'PENDING', expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), consumedAt: null, revokedAt: null });
     const service = new InvitationService(repo as unknown as InvitationRepository, identity, email);
 
-    const result = await service.resend(makeContext(), 's1', 'inv1');
+    const result = await service.resend(makeOwnerContext(), 's1', 'inv1');
 
     expect(result.status).toBe('PENDING');
     expect(repo.revokeInvitation).toHaveBeenCalledWith('inv1', expect.anything());
@@ -108,7 +112,7 @@ describe('InvitationService', () => {
     repo.transaction.mockRejectedValueOnce(new Error('DB failure'));
     const service = new InvitationService(repo as unknown as InvitationRepository, identity, email);
 
-    await expect(service.invite(makeContext(), 's1', 'invitee@example.com', 'STAFF')).rejects.toThrow('DB failure');
+    await expect(service.invite(makeOwnerContext(), 's1', 'invitee@example.com', 'STAFF')).rejects.toThrow('DB failure');
     expect(email.sendInvitation).not.toHaveBeenCalled();
   });
 
@@ -119,7 +123,7 @@ describe('InvitationService', () => {
     repo.findInvitationById.mockResolvedValueOnce({ id: 'inv1', storeId: 's1', email: 'invitee@example.com', roleCode: 'STAFF', tokenHash: 'hash', status: 'PENDING', expiresAt: new Date(), consumedAt: null, revokedAt: null });
     const service = new InvitationService(repo as unknown as InvitationRepository, makeIdentity(), makeEmailDelivery());
 
-    const result = await service.revoke(makeContext(), 's1', 'inv1');
+    const result = await service.revoke(makeOwnerContext(), 's1', 'inv1');
 
     expect(result.status).toBe('REVOKED');
   });

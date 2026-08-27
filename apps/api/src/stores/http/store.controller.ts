@@ -1,5 +1,5 @@
-import { Body, Controller, Get, Headers, HttpCode, Param, Post, Req, UnauthorizedException, UseGuards } from '@nestjs/common';
-import type { Request } from 'express';
+import { Body, Controller, Get, Headers, HttpCode, Param, Post, Req, Res, UnauthorizedException, UseGuards } from '@nestjs/common';
+import type { Request, Response } from 'express';
 import { StoreService } from '../application/store.service';
 import { AuthGuard } from '../../auth/http/auth.guard';
 
@@ -23,8 +23,15 @@ export class StoreController {
 
   @Post(':storeId/select')
   @HttpCode(200)
-  async select(@Req() request: AuthenticatedRequest, @Param('storeId') storeId: string) {
-    return { data: await this.stores.selectStore(this.userId(request), storeId) };
+  async select(@Req() request: AuthenticatedRequest, @Param('storeId') storeId: string, @Res({ passthrough: true }) res: Response) {
+    const result = await this.stores.selectStore(this.userId(request), storeId);
+    res.cookie('commerce_selected_store', storeId, {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+    });
+    return { data: result };
   }
 
   private userId(request: AuthenticatedRequest): string {

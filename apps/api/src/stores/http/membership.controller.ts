@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Patch, Post, Req, UnauthorizedException, UseGuards } from '@nestjs/common';
 import type { Request } from 'express';
 import { AuthGuard } from '../../auth/http/auth.guard';
+import { PermissionGuard, RequirePermission } from '../../authorization/http/permission.guard';
 import type { RequestContext } from '../../auth/application/session.service';
 import { MembershipService } from '../application/membership.service';
 import { InvitationService } from '../application/invitation.service';
@@ -16,7 +17,7 @@ function validateRoleCode(roleCode: string): RoleCode {
   return roleCode as RoleCode;
 }
 
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, PermissionGuard)
 @Controller('api/v1')
 export class MembershipController {
   constructor(
@@ -34,31 +35,37 @@ export class MembershipController {
     return { data: await this.membershipService.leave(this.context(request), storeId) };
   }
 
+  @RequirePermission('members.manage')
   @Post('stores/:storeId/members/:userId/suspend')
   async suspend(@Req() request: AuthenticatedRequest, @Param('storeId') storeId: string, @Param('userId') userId: string) {
     return { data: await this.membershipService.suspend(this.context(request), storeId, userId) };
   }
 
+  @RequirePermission('members.manage')
   @Post('stores/:storeId/members/:userId/remove')
   async remove(@Req() request: AuthenticatedRequest, @Param('storeId') storeId: string, @Param('userId') userId: string) {
     return { data: await this.membershipService.remove(this.context(request), storeId, userId) };
   }
 
+  @RequirePermission('members.manage')
   @Patch('stores/:storeId/members/:userId/role')
   async changeRole(@Req() request: AuthenticatedRequest, @Param('storeId') storeId: string, @Param('userId') userId: string, @Body() body: { roleCode: string }) {
     return { data: await this.membershipService.changeRole(this.context(request), storeId, userId, validateRoleCode(body.roleCode)) };
   }
 
+  @RequirePermission('members.invite')
   @Post('stores/:storeId/invitations')
   async invite(@Req() request: AuthenticatedRequest, @Param('storeId') storeId: string, @Body() body: { email: string; roleCode: string }) {
     return { data: await this.invitationService.invite(this.context(request), storeId, body.email, validateRoleCode(body.roleCode)) };
   }
 
+  @RequirePermission('members.invite')
   @Post('stores/:storeId/invitations/:invitationId/resend')
   async resend(@Req() request: AuthenticatedRequest, @Param('storeId') storeId: string, @Param('invitationId') invitationId: string) {
     return { data: await this.invitationService.resend(this.context(request), storeId, invitationId) };
   }
 
+  @RequirePermission('members.manage')
   @Post('stores/:storeId/invitations/:invitationId/revoke')
   async revokeInvitation(@Req() request: AuthenticatedRequest, @Param('storeId') storeId: string, @Param('invitationId') invitationId: string) {
     return { data: await this.invitationService.revoke(this.context(request), storeId, invitationId) };

@@ -19,6 +19,18 @@ describe('MembershipService', () => {
     return { userId: 'actor-1', sessionId: 'session-1', ...overrides };
   }
 
+  function makeAdminContext(): RequestContext {
+    return makeContext({ role: 'ADMIN', permissions: ['members.manage', 'members.read', 'members.invite'] });
+  }
+
+  function makeOwnerContext(): RequestContext {
+    return makeContext({ role: 'OWNER', permissions: ['members.manage', 'members.read', 'members.invite', 'store.deactivate', 'store.settings'] });
+  }
+
+  function makeStaffContext(): RequestContext {
+    return makeContext({ role: 'STAFF', permissions: ['orders.read', 'orders.update', 'products.read', 'customers.read'] });
+  }
+
   it('leaves a Store as self-service transitioning to LEFT', async () => {
     const repo = makeRepository();
     repo.findStoreById.mockResolvedValueOnce({ id: 's1', status: 'ACTIVE' });
@@ -56,7 +68,7 @@ describe('MembershipService', () => {
     repo.findMembership.mockResolvedValueOnce({ id: 'actor-m', storeId: 's1', userId: 'actor-1', roleCode: 'OWNER', status: 'ACTIVE' });
     const service = new MembershipService(repo as unknown as MembershipRepository);
 
-    const result = await service.suspend(makeContext(), 's1', 'u2');
+    const result = await service.suspend(makeOwnerContext(), 's1', 'u2');
 
     expect(result.status).toBe('SUSPENDED');
     expect(repo.updateMembershipStatus).toHaveBeenCalledWith('m2', 'SUSPENDED', expect.anything());
@@ -70,7 +82,7 @@ describe('MembershipService', () => {
     repo.findMembership.mockResolvedValueOnce({ id: 'actor-m', storeId: 's1', userId: 'actor-1', roleCode: 'ADMIN', status: 'ACTIVE' });
     const service = new MembershipService(repo as unknown as MembershipRepository);
 
-    await expect(service.suspend(makeContext(), 's1', 'u2')).resolves.toMatchObject({ status: 'SUSPENDED' });
+    await expect(service.suspend(makeAdminContext(), 's1', 'u2')).resolves.toMatchObject({ status: 'SUSPENDED' });
   });
 
   it('rejects suspend by non-Owner/Admin', async () => {
@@ -79,7 +91,7 @@ describe('MembershipService', () => {
     repo.findMembership.mockResolvedValueOnce({ id: 'actor-m', storeId: 's1', userId: 'actor-1', roleCode: 'STAFF', status: 'ACTIVE' });
     const service = new MembershipService(repo as unknown as MembershipRepository);
 
-    await expect(service.suspend(makeContext(), 's1', 'u2')).rejects.toMatchObject({ status: 403, code: 'MEMBERSHIP_MANAGE_FORBIDDEN' });
+    await expect(service.suspend(makeStaffContext(), 's1', 'u2')).rejects.toMatchObject({ status: 403, code: 'PERMISSION_DENIED' });
   });
 
   it('protects final Owner from suspension using advisory lock pattern', async () => {
@@ -90,7 +102,7 @@ describe('MembershipService', () => {
     repo.countActiveOwners.mockResolvedValueOnce(1);
     const service = new MembershipService(repo as unknown as MembershipRepository);
 
-    await expect(service.suspend(makeContext(), 's1', 'u2')).rejects.toMatchObject({ status: 409, code: 'FINAL_OWNER_PROTECTED' });
+    await expect(service.suspend(makeOwnerContext(), 's1', 'u2')).rejects.toMatchObject({ status: 409, code: 'FINAL_OWNER_PROTECTED' });
   });
 
   it('allows Owner to remove a member', async () => {
@@ -101,7 +113,7 @@ describe('MembershipService', () => {
     repo.findMembership.mockResolvedValueOnce({ id: 'actor-m', storeId: 's1', userId: 'actor-1', roleCode: 'OWNER', status: 'ACTIVE' });
     const service = new MembershipService(repo as unknown as MembershipRepository);
 
-    const result = await service.remove(makeContext(), 's1', 'u2');
+    const result = await service.remove(makeOwnerContext(), 's1', 'u2');
 
     expect(result.status).toBe('REMOVED');
   });
@@ -114,7 +126,7 @@ describe('MembershipService', () => {
     repo.countActiveOwners.mockResolvedValueOnce(1);
     const service = new MembershipService(repo as unknown as MembershipRepository);
 
-    await expect(service.remove(makeContext(), 's1', 'u2')).rejects.toMatchObject({ status: 409, code: 'FINAL_OWNER_PROTECTED' });
+    await expect(service.remove(makeOwnerContext(), 's1', 'u2')).rejects.toMatchObject({ status: 409, code: 'FINAL_OWNER_PROTECTED' });
   });
 
   it('allows Owner to change a member role', async () => {
@@ -125,7 +137,7 @@ describe('MembershipService', () => {
     repo.findMembership.mockResolvedValueOnce({ id: 'actor-m', storeId: 's1', userId: 'actor-1', roleCode: 'OWNER', status: 'ACTIVE' });
     const service = new MembershipService(repo as unknown as MembershipRepository);
 
-    const result = await service.changeRole(makeContext(), 's1', 'u2', 'ADMIN');
+    const result = await service.changeRole(makeOwnerContext(), 's1', 'u2', 'ADMIN');
 
     expect(result.roleCode).toBe('ADMIN');
     expect(repo.updateMembershipRole).toHaveBeenCalledWith('m2', 'ADMIN', expect.anything());
@@ -135,7 +147,7 @@ describe('MembershipService', () => {
     const repo = makeRepository();
     const service = new MembershipService(repo as unknown as MembershipRepository);
 
-    await expect(service.changeRole(makeContext(), 's1', 'u2', 'INVALID_ROLE' as unknown as 'ADMIN')).rejects.toMatchObject({ status: 400, code: 'INVALID_ROLE_CODE' });
+    await expect(service.changeRole(makeOwnerContext(), 's1', 'u2', 'INVALID_ROLE' as unknown as 'ADMIN')).rejects.toMatchObject({ status: 400, code: 'INVALID_ROLE_CODE' });
   });
 
   it('rejects role change that would leave zero active Owners', async () => {
@@ -146,7 +158,7 @@ describe('MembershipService', () => {
     repo.countActiveOwners.mockResolvedValueOnce(1);
     const service = new MembershipService(repo as unknown as MembershipRepository);
 
-    await expect(service.changeRole(makeContext(), 's1', 'u2', 'ADMIN')).rejects.toMatchObject({ status: 409, code: 'FINAL_OWNER_PROTECTED' });
+    await expect(service.changeRole(makeOwnerContext(), 's1', 'u2', 'ADMIN')).rejects.toMatchObject({ status: 409, code: 'FINAL_OWNER_PROTECTED' });
   });
 
   it('rejects downgrade of self when it would leave zero active Owners', async () => {
@@ -157,7 +169,7 @@ describe('MembershipService', () => {
     repo.countActiveOwners.mockResolvedValueOnce(1);
     const service = new MembershipService(repo as unknown as MembershipRepository);
 
-    await expect(service.changeRole(makeContext(), 's1', 'actor-1', 'ADMIN')).rejects.toMatchObject({ status: 409, code: 'FINAL_OWNER_PROTECTED' });
+    await expect(service.changeRole(makeOwnerContext(), 's1', 'actor-1', 'ADMIN')).rejects.toMatchObject({ status: 409, code: 'FINAL_OWNER_PROTECTED' });
   });
 
   it('rechecks actor permission after revoke in case session was invalidated', async () => {
@@ -169,7 +181,7 @@ describe('MembershipService', () => {
     repo.findMembership.mockResolvedValueOnce(null);
     const service = new MembershipService(repo as unknown as MembershipRepository);
 
-    await expect(service.suspend(makeContext(), 's1', 'u2')).rejects.toMatchObject({ status: 403, code: 'MEMBERSHIP_REVOKED' });
+    await expect(service.suspend(makeAdminContext(), 's1', 'u2')).rejects.toMatchObject({ status: 403, code: 'MEMBERSHIP_REVOKED' });
   });
 
   it('lists memberships scoped to a Store', async () => {
