@@ -86,6 +86,20 @@ describe('auth queries', () => {
       expect(result.current.data).toEqual({ userId: 'u1' });
     });
 
+    it('invalidates session, stores, and capabilities on success', async () => {
+      vi.spyOn(api, 'login').mockResolvedValueOnce({ userId: 'u1' });
+      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      const invalidateQueriesSpy = vi.spyOn(queryClient, 'invalidateQueries');
+      const Wrapper = ({ children }: { children: React.ReactNode }) =>
+        React.createElement(QueryClientProvider, { client: queryClient }, children);
+      const { result } = renderHook(() => useLogin(), { wrapper: Wrapper });
+      result.current.mutate({ email: 'a@b.com', password: 'Password1!' });
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+      expect(invalidateQueriesSpy).toHaveBeenCalledWith({ queryKey: ['session'] });
+      expect(invalidateQueriesSpy).toHaveBeenCalledWith({ queryKey: ['stores'] });
+      expect(invalidateQueriesSpy).toHaveBeenCalledWith({ queryKey: ['capabilities'] });
+    });
+
     it('exposes 401 error', async () => {
       vi.spyOn(api, 'login').mockRejectedValueOnce(new api.ApiError(401, 'UNAUTHENTICATED', 'Invalid credentials'));
       const { result } = renderHook(() => useLogin(), { wrapper: createWrapper() });
@@ -96,7 +110,7 @@ describe('auth queries', () => {
   });
 
   describe('useLogout', () => {
-    it('mutates and invalidates session', async () => {
+    it('mutates and invalidates session, stores, and capabilities', async () => {
       vi.spyOn(api, 'logout').mockResolvedValueOnce({ accepted: true });
       const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
       const invalidateQueriesSpy = vi.spyOn(queryClient, 'invalidateQueries');
@@ -106,6 +120,8 @@ describe('auth queries', () => {
       result.current.mutate();
       await waitFor(() => expect(result.current.isSuccess).toBe(true));
       expect(invalidateQueriesSpy).toHaveBeenCalledWith({ queryKey: ['session'] });
+      expect(invalidateQueriesSpy).toHaveBeenCalledWith({ queryKey: ['stores'] });
+      expect(invalidateQueriesSpy).toHaveBeenCalledWith({ queryKey: ['capabilities'] });
     });
   });
 

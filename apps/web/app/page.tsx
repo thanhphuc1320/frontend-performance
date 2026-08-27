@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useSession, useLogin, useLogout, useRegister } from '../features/auth/queries';
+import { useSession, useLogin, useLogout, useRegister, useRequestPasswordReset } from '../features/auth/queries';
 import { useStores, useSelectStore, useCreateFirstStore, useAcceptInvitation, useCapabilities } from '../features/stores/queries';
 import { RegisterForm } from '../features/auth/components/register-form';
 import { LoginForm } from '../features/auth/components/login-form';
@@ -22,6 +22,7 @@ export default function Page() {
   const login = useLogin();
   const logout = useLogout();
   const register = useRegister();
+  const requestPasswordReset = useRequestPasswordReset();
   const selectStore = useSelectStore();
   const createStore = useCreateFirstStore();
   const acceptInvitation = useAcceptInvitation();
@@ -91,8 +92,10 @@ export default function Page() {
         )}
         {view === 'recovery' && (
           <RecoveryForm
-            onSubmit={() => { /* would wire to useRequestPasswordReset */ }}
-            loading={false}
+            onSubmit={(email) => requestPasswordReset.mutate(email)}
+            loading={requestPasswordReset.isPending}
+            error={requestPasswordReset.error instanceof ApiError ? requestPasswordReset.error.message : null}
+            success={requestPasswordReset.isSuccess}
           />
         )}
         {view === 'verify-email' && (

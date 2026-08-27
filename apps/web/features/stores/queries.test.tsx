@@ -76,6 +76,18 @@ describe('stores queries', () => {
       expect(result.current.data).toEqual({ id: 's1', name: 'My Store' });
     });
 
+    it('invalidates stores on success', async () => {
+      vi.spyOn(api, 'createFirstStore').mockResolvedValueOnce({ id: 's1', name: 'My Store' });
+      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      const invalidateQueriesSpy = vi.spyOn(queryClient, 'invalidateQueries');
+      const Wrapper = ({ children }: { children: React.ReactNode }) =>
+        React.createElement(QueryClientProvider, { client: queryClient }, children);
+      const { result } = renderHook(() => useCreateFirstStore(), { wrapper: Wrapper });
+      result.current.mutate({ name: 'My Store' });
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+      expect(invalidateQueriesSpy).toHaveBeenCalledWith({ queryKey: ['stores'] });
+    });
+
     it('exposes 403 error', async () => {
       vi.spyOn(api, 'createFirstStore').mockRejectedValueOnce(new api.ApiError(403, 'FORBIDDEN', 'Email not verified'));
       const { result } = renderHook(() => useCreateFirstStore(), { wrapper: createWrapper() });
@@ -92,6 +104,19 @@ describe('stores queries', () => {
       result.current.mutate('token123');
       await waitFor(() => expect(result.current.isSuccess).toBe(true));
       expect(result.current.data).toEqual({ userId: 'u1', storeId: 's1', status: 'ACTIVE' });
+    });
+
+    it('invalidates stores and capabilities on success', async () => {
+      vi.spyOn(api, 'acceptInvitation').mockResolvedValueOnce({ userId: 'u1', storeId: 's1', status: 'ACTIVE' });
+      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      const invalidateQueriesSpy = vi.spyOn(queryClient, 'invalidateQueries');
+      const Wrapper = ({ children }: { children: React.ReactNode }) =>
+        React.createElement(QueryClientProvider, { client: queryClient }, children);
+      const { result } = renderHook(() => useAcceptInvitation(), { wrapper: Wrapper });
+      result.current.mutate('token123');
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+      expect(invalidateQueriesSpy).toHaveBeenCalledWith({ queryKey: ['stores'] });
+      expect(invalidateQueriesSpy).toHaveBeenCalledWith({ queryKey: ['capabilities'] });
     });
   });
 
