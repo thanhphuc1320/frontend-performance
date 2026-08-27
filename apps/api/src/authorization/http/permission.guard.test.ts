@@ -166,6 +166,37 @@ describe('PermissionGuard', () => {
 
     expect(result).toBe(true);
   });
+
+  it('extracts storeId from commerce_selected_store cookie when checking scope', async () => {
+    const authService = makeAuthorizationService();
+    const reflector = makeReflector();
+    const handler = () => undefined;
+    Reflect.defineMetadata('require_permission', 'orders.read', handler);
+    const req = {
+      method: 'GET',
+      params: {},
+      query: {},
+      headers: {},
+      cookies: { commerce_selected_store: 'store-2' },
+      context: {
+        userId: 'user-1',
+        sessionId: 'session-1',
+        storeId: 'store-1',
+        membershipStatus: 'ACTIVE',
+        role: 'OWNER',
+        permissions: [...ROLE_PERMISSIONS.OWNER],
+      },
+    };
+    const executionContext = {
+      switchToHttp: () => ({ getRequest: () => req }),
+      getHandler: () => handler,
+      getClass: () => class Test {},
+    } as unknown as ExecutionContext;
+
+    const guard = new PermissionGuard(reflector, authService);
+
+    await expect(guard.canActivate(executionContext)).rejects.toMatchObject({ status: 403, code: 'PERMISSION_DENIED' });
+  });
 });
 
 describe('RequirePermission decorator', () => {

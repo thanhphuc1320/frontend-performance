@@ -92,7 +92,7 @@ export class AuthGuard implements CanActivate {
        WHERE s.id = $1`,
       [storeId, userId],
     );
-    if (result.rowCount === 0) return null;
+    if (result.rows.length === 0) return null;
     const row = result.rows[0]!;
     if (row.store_status !== 'ACTIVE') return null;
     if (row.membership_status !== 'ACTIVE') return null;

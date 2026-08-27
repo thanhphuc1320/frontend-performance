@@ -24,7 +24,7 @@ describe('AuthorizationService', () => {
     }
   });
 
-  it('grants Admin operational permissions but not ownership or deactivation', () => {
+  it('grants Admin operational permissions but not ownership, financial, livestream or role management', () => {
     const service = new AuthorizationService();
     const context = makeContext({ role: 'ADMIN', permissions: [...ROLE_PERMISSIONS.ADMIN] });
 
@@ -34,6 +34,10 @@ describe('AuthorizationService', () => {
     expect(service.can(context, 'store.settings' as PermissionCode, 'store-1')).toBe(true);
     expect(service.can(context, 'store.deactivate' as PermissionCode, 'store-1')).toBe(false);
     expect(service.can(context, 'dashboard.financial.read' as PermissionCode, 'store-1')).toBe(false);
+    expect(service.can(context, 'dashboard.livestream.read' as PermissionCode, 'store-1')).toBe(false);
+    expect(service.can(context, 'livestream.read' as PermissionCode, 'store-1')).toBe(false);
+    expect(service.can(context, 'livestream.control' as PermissionCode, 'store-1')).toBe(false);
+    expect(service.can(context, 'roles.read' as PermissionCode, 'store-1')).toBe(false);
   });
 
   it('grants Staff core operational permissions only', () => {

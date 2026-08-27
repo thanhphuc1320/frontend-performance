@@ -18,10 +18,10 @@ export type RoleCode = (typeof ROLE_CODES)[number];
 export const ROLE_PERMISSIONS: Readonly<Record<RoleCode, readonly PermissionCode[]>> = {
   OWNER: PERMISSION_CODES,
   ADMIN: [
-    'dashboard.read', 'dashboard.livestream.read', 'analytics.read', 'orders.read', 'orders.update', 'orders.cancel',
+    'dashboard.read', 'analytics.read', 'orders.read', 'orders.update', 'orders.cancel',
     'customers.read', 'customers.merge', 'products.read', 'products.manage', 'inventory.read', 'inventory.adjust',
-    'channels.read', 'channels.connect', 'channels.sync', 'livestream.read', 'livestream.control',
-    'members.read', 'members.invite', 'members.manage', 'roles.read', 'audit.read', 'store.settings',
+    'channels.read', 'channels.connect', 'channels.sync',
+    'members.read', 'members.invite', 'members.manage', 'audit.read', 'store.settings',
   ],
   STAFF: ['dashboard.read', 'orders.read', 'orders.update', 'products.read', 'customers.read'],
   WAREHOUSE: ['orders.read', 'orders.update', 'inventory.read', 'inventory.adjust'],

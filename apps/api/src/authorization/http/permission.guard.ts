@@ -49,11 +49,12 @@ export class PermissionGuard implements CanActivate {
   }
 
   private extractStoreId(request: Request): string | undefined {
-    const req = request as Request & { params?: Record<string, unknown>; query?: Record<string, unknown> };
+    const req = request as Request & { params?: Record<string, unknown>; query?: Record<string, unknown>; cookies?: Record<string, string> };
     if (typeof req.params?.storeId === 'string') return req.params.storeId;
     if (typeof req.query?.storeId === 'string') return req.query.storeId;
     const headerStoreId = request.headers['x-store-id'];
     if (typeof headerStoreId === 'string') return headerStoreId;
+    if (typeof req.cookies?.['commerce_selected_store'] === 'string') return req.cookies['commerce_selected_store'];
     return undefined;
   }
 }
