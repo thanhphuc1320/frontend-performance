@@ -69,8 +69,8 @@ export class IdentityRepository {
 
   async updateUser(user: User, executor: Executor = this.database): Promise<void> {
     await executor.query(
-      `UPDATE users SET status = $2, lock_until = $3, failed_login_attempts = $4, email_verified_at = CASE WHEN $2 = 'ACTIVE' THEN COALESCE(email_verified_at, now()) ELSE email_verified_at END, updated_at = now() WHERE id = $1`,
-      [user.id, user.status, user.lockUntil, user.failedLoginAttempts],
+      `UPDATE users SET status = $2, password_hash = $3, lock_until = $4, failed_login_attempts = $5, email_verified_at = CASE WHEN $2 = 'ACTIVE' THEN COALESCE(email_verified_at, now()) ELSE email_verified_at END, updated_at = now() WHERE id = $1`,
+      [user.id, user.status, user.passwordHash, user.lockUntil, user.failedLoginAttempts],
     );
   }
 
