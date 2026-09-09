@@ -6,6 +6,7 @@ import { MemoryEmailDelivery } from './infrastructure/test-adapters';
 import { Argon2idPasswordHasher, HibpPasswordChecker, SmtpEmailDelivery } from './infrastructure/production-adapters';
 import { API_CONFIG, COMPROMISED_PASSWORD_CHECKER, EMAIL_DELIVERY, IDENTITY_REPOSITORY, PASSWORD_HASHER } from './application/identity.tokens';
 import { loadApiConfig, type ApiConfig } from '@commerce/config';
+import { AuditModule } from '../audit/audit.module';
 
 function validatedConfig(): ApiConfig {
   const env = { ...process.env };
@@ -18,6 +19,7 @@ function validatedConfig(): ApiConfig {
 }
 
 @Module({
+  imports: [AuditModule],
   providers: [
     { provide: API_CONFIG, useFactory: validatedConfig },
     { provide: DATABASE, useFactory: (config: ApiConfig) => new PostgresDatabase(config.DATABASE_URL), inject: [API_CONFIG] },

@@ -7,6 +7,7 @@ import type { EmailDelivery } from './ports/email-delivery';
 import type { PasswordHasher } from './ports/password-hasher';
 import type { IdentityStore } from './identity.service';
 import { ApiError } from '../../http/api-error';
+import { AuditService } from '../../audit/audit.service';
 import type { ApiConfig } from '@commerce/config';
 
 import { Inject } from '@nestjs/common';
@@ -25,9 +26,10 @@ export class RecoveryService {
     @Inject(COMPROMISED_PASSWORD_CHECKER)
     private readonly compromisedPasswordChecker: CompromisedPasswordChecker,
     private readonly config: Pick<ApiConfig, 'AUTH_PASSWORD_RESET_TOKEN_TTL_SECONDS' | 'AUTH_EMAIL_CHANGE_TOKEN_TTL_SECONDS'>,
+    private readonly auditService?: AuditService,
   ) {}
 
-  async requestPasswordReset(input: { email: string }): Promise<{ accepted: true }> {
+  async requestPasswordReset(input: { email: string }, requestId?: string): Promise<{ accepted: true }> {
     const email = normalizeEmail(input.email);
     const user = await this.repository.findUserByEmail(email);
     if (!user) return safeResponse;
@@ -42,10 +44,19 @@ export class RecoveryService {
       actionUrl: `/reset-password?token=${rawToken}`,
       templateData: { email },
     });
+
+    await this.auditService?.log({
+      actorUserId: user.id,
+      action: 'password.reset.request',
+      resourceType: 'user',
+      resourceId: user.id,
+      requestId,
+    });
+
     return safeResponse;
   }
 
-  async resetPassword(rawToken: string, newPassword: string): Promise<{ accepted: boolean }> {
+  async resetPassword(rawToken: string, newPassword: string, requestId?: string): Promise<{ accepted: boolean }> {
     if (typeof rawToken !== 'string' || !rawToken.trim()) return failResponse;
     const hash = createHash('sha256').update(rawToken).digest('hex');
 
@@ -63,11 +74,20 @@ export class RecoveryService {
       const updated = new User(user.id, user.email, passwordHash, user.status, user.lockUntil ?? undefined, user.failedLoginAttempts);
       await this.repository.updateUser(updated, executor);
       await this.sessionRevoker.revokeAllForUser(user.id);
+
+      await this.auditService?.log({
+        actorUserId: user.id,
+        action: 'password.reset.complete',
+        resourceType: 'user',
+        resourceId: user.id,
+        requestId,
+      });
+
       return safeResponse;
     });
   }
 
-  async requestEmailChange(input: { userId: string; newEmail: string }): Promise<{ accepted: true }> {
+  async requestEmailChange(input: { userId: string; newEmail: string }, requestId?: string): Promise<{ accepted: true }> {
     const user = await this.repository.findUserById(input.userId);
     if (!user) return safeResponse;
     const newEmail = normalizeEmail(input.newEmail);
@@ -84,10 +104,20 @@ export class RecoveryService {
       actionUrl: `/verify-email-change?token=${rawToken}`,
       templateData: { email: newEmail },
     });
+
+    await this.auditService?.log({
+      actorUserId: user.id,
+      action: 'email.change.request',
+      resourceType: 'user',
+      resourceId: user.id,
+      requestId,
+      afterData: { newEmail },
+    });
+
     return safeResponse;
   }
 
-  async verifyEmailChange(rawToken: string): Promise<{ accepted: boolean }> {
+  async verifyEmailChange(rawToken: string, requestId?: string): Promise<{ accepted: boolean }> {
     if (typeof rawToken !== 'string' || !rawToken.trim()) return failResponse;
     const hash = createHash('sha256').update(rawToken).digest('hex');
 
@@ -98,8 +128,20 @@ export class RecoveryService {
       if (!user) return failResponse;
 
       if (!(await this.repository.consumeToken(hash, executor))) return failResponse;
+      const oldEmail = user.email;
       await this.repository.updateEmail(user.id, token.email, executor);
       await this.sessionRevoker.revokeAllForUser(user.id);
+
+      await this.auditService?.log({
+        actorUserId: user.id,
+        action: 'email.change.complete',
+        resourceType: 'user',
+        resourceId: user.id,
+        requestId,
+        beforeData: { oldEmail },
+        afterData: { newEmail: token.email },
+      });
+
       return safeResponse;
     });
   }

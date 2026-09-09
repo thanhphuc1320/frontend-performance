@@ -2,6 +2,7 @@ import { createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from
 import type { SessionRepository } from '../infrastructure/session.repository';
 import type { IdentityStore } from '../../identity/application/identity.service';
 import type { ApiConfig } from '@commerce/config';
+import { AuditService } from '../../audit/audit.service';
 
 export type RequestContext = {
   userId: string;
@@ -10,6 +11,7 @@ export type RequestContext = {
   membershipStatus?: string;
   role?: string;
   permissions?: string[];
+  requestId?: string;
 };
 
 const IDLE_TIMEOUT_MS = 24 * 60 * 60 * 1000;
@@ -20,9 +22,10 @@ export class SessionService {
     private readonly sessionRepository: SessionRepository,
     private readonly identityRepository: Pick<IdentityStore, 'findUserById'>,
     private readonly config: Pick<ApiConfig, 'CSRF_SECRET'>,
+    private readonly auditService?: AuditService,
   ) {}
 
-  async create(userId: string, metadata?: { userAgent?: string; ipAddress?: string }): Promise<{ sessionId: string; rawToken: string; sessionHash: string; csrfToken: string }> {
+  async create(userId: string, metadata?: { userAgent?: string; ipAddress?: string; requestId?: string }): Promise<{ sessionId: string; rawToken: string; sessionHash: string; csrfToken: string }> {
     const rawToken = randomBytes(32).toString('hex');
     const sessionHash = createHash('sha256').update(rawToken).digest('hex');
     const sessionId = randomUUID();
@@ -41,6 +44,14 @@ export class SessionService {
     });
 
     const csrfToken = this.generateCsrf(rawToken);
+
+    await this.auditService?.log({
+      actorUserId: userId,
+      action: 'session.create',
+      resourceType: 'session',
+      resourceId: sessionId,
+      requestId: metadata?.requestId,
+    });
 
     return { sessionId, rawToken, sessionHash, csrfToken };
   }
@@ -64,8 +75,17 @@ export class SessionService {
     return this.sessionRepository.touch(sessionId, idleExpiresAt);
   }
 
-  async revoke(sessionId: string): Promise<boolean> {
-    return this.sessionRepository.revoke(sessionId);
+  async revoke(sessionId: string, requestId?: string): Promise<boolean> {
+    const result = await this.sessionRepository.revoke(sessionId);
+    if (result) {
+      await this.auditService?.log({
+        action: 'session.revoke',
+        resourceType: 'session',
+        resourceId: sessionId,
+        requestId,
+      });
+    }
+    return result;
   }
 
   async revokeAllForUser(userId: string): Promise<void> {

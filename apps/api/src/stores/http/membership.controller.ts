@@ -76,7 +76,8 @@ export class MembershipController {
     if (typeof body?.token !== 'string' || !body.token.trim()) {
       throw new ApiError(400, 'VALIDATION_ERROR', 'Invitation token is required');
     }
-    return { data: await this.invitationService.accept(body.token, this.userId(request)) };
+    const requestId = request.header('x-request-id')?.trim() || undefined;
+    return { data: await this.invitationService.accept(body.token, this.userId(request), requestId) };
   }
 
   private context(request: AuthenticatedRequest): RequestContext {

@@ -7,6 +7,7 @@ import { User } from '../domain/user';
 import type { EmailDelivery } from './ports/email-delivery';
 import type { PasswordHasher } from './ports/password-hasher';
 import { ApiError } from '../../http/api-error';
+import { AuditService } from '../../audit/audit.service';
 import { Inject } from '@nestjs/common';
 import { API_CONFIG, COMPROMISED_PASSWORD_CHECKER, EMAIL_DELIVERY, IDENTITY_REPOSITORY, PASSWORD_HASHER } from './identity.tokens';
 
@@ -36,9 +37,10 @@ export class IdentityService {
     private readonly compromisedPasswordChecker: CompromisedPasswordChecker,
     @Inject(API_CONFIG)
     private readonly config: Pick<ApiConfig, 'AUTH_VERIFICATION_TOKEN_TTL_SECONDS'> = { AUTH_VERIFICATION_TOKEN_TTL_SECONDS: 86400 },
+    private readonly auditService?: AuditService,
   ) {}
 
-  async register(input: { email: string; password: string }): Promise<{ accepted: true }> {
+  async register(input: { email: string; password: string }, requestId?: string): Promise<{ accepted: true }> {
     if (typeof input?.email !== 'string' || typeof input?.password !== 'string') throw new ApiError(400, 'VALIDATION_ERROR', 'Invalid request');
     let email: string;
     try {
@@ -70,10 +72,20 @@ export class IdentityService {
       actionUrl: `/verify-email?token=${rawToken}`,
       templateData: { email },
     });
+
+    await this.auditService?.log({
+      actorUserId: userId,
+      action: 'user.register',
+      resourceType: 'user',
+      resourceId: userId,
+      requestId,
+      afterData: { email, status: 'UNVERIFIED' },
+    });
+
     return safeResponse;
   }
 
-  async verifyEmail(rawToken: string): Promise<{ verified: boolean }> {
+  async verifyEmail(rawToken: string, requestId?: string): Promise<{ verified: boolean }> {
     if (typeof rawToken !== 'string' || !rawToken.trim()) throw new ApiError(400, 'VALIDATION_ERROR', 'Verification token is required');
     const hash = createHash('sha256').update(rawToken).digest('hex');
     const token = await this.repository.findToken(hash, AuthTokenType.VERIFICATION);
@@ -88,6 +100,17 @@ export class IdentityService {
         return { verified: false };
       }
       await this.repository.updateUser(user, executor);
+
+      await this.auditService?.log({
+        actorUserId: user.id,
+        action: 'user.verify',
+        resourceType: 'user',
+        resourceId: user.id,
+        requestId,
+        beforeData: { status: 'UNVERIFIED' },
+        afterData: { status: 'ACTIVE' },
+      });
+
       return { verified: true };
     });
   }

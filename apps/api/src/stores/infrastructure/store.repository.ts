@@ -127,6 +127,34 @@ export class StoreRepository {
     return result.rowCount === 1;
   }
 
+  async updateStore(storeId: string, input: { name?: string; timezone?: string; currency?: string }, executor: Database = this.database): Promise<StoreRecord> {
+    const sets: string[] = [];
+    const values: unknown[] = [];
+    let idx = 1;
+    if (input.name !== undefined) { sets.push(`name = $${idx++}`); values.push(input.name); }
+    if (input.timezone !== undefined) { sets.push(`timezone = $${idx++}`); values.push(input.timezone); }
+    if (input.currency !== undefined) { sets.push(`currency = $${idx++}`); values.push(input.currency); }
+    sets.push(`updated_at = now()`);
+    values.push(storeId);
+    const result = await executor.query<StoreRow>(
+      `UPDATE stores SET ${sets.join(', ')} WHERE id = $${idx} RETURNING id, name, timezone, currency, status, created_by`,
+      values,
+    );
+    if (result.rowCount === 0) throw new RepositoryError('NOT_FOUND', 'Store not found');
+    const row = result.rows[0]!;
+    return { id: row.id, name: row.name, timezone: row.timezone, currency: row.currency, status: row.status, createdBy: row.created_by };
+  }
+
+  async deactivateStore(storeId: string, executor: Database = this.database): Promise<StoreRecord> {
+    const result = await executor.query<StoreRow>(
+      `UPDATE stores SET status = 'DEACTIVATED', updated_at = now() WHERE id = $1 RETURNING id, name, timezone, currency, status, created_by`,
+      [storeId],
+    );
+    if (result.rowCount === 0) throw new RepositoryError('NOT_FOUND', 'Store not found');
+    const row = result.rows[0]!;
+    return { id: row.id, name: row.name, timezone: row.timezone, currency: row.currency, status: row.status, createdBy: row.created_by };
+  }
+
   async findStoreById(storeId: string, executor: Database = this.database): Promise<StoreRecord | null> {
     const result = await executor.query<StoreRow>(
       `SELECT id, name, timezone, currency, status, created_by FROM stores WHERE id = $1`, [storeId],

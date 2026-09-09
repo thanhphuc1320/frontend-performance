@@ -4,6 +4,7 @@ import { AuthGuard } from './http/auth.guard';
 import { SessionService } from './application/session.service';
 import { SessionRepository } from './infrastructure/session.repository';
 import { IdentityModule } from '../identity/identity.module';
+import { AuditModule } from '../audit/audit.module';
 import { DATABASE, PostgresDatabase } from '../infrastructure/database.provider';
 import { API_CONFIG, EMAIL_DELIVERY, IDENTITY_REPOSITORY, PASSWORD_HASHER, SESSION_REVOKER, COMPROMISED_PASSWORD_CHECKER } from '../identity/application/identity.tokens';
 import type { PasswordHasher } from '../identity/application/ports/password-hasher';
@@ -12,7 +13,7 @@ import { SESSION_SERVICE } from './application/session.tokens';
 import { RecoveryService } from '../identity/application/recovery.service';
 
 @Module({
-  imports: [IdentityModule],
+  imports: [IdentityModule, AuditModule],
   controllers: [AuthController],
   providers: [
     {

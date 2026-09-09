@@ -48,6 +48,10 @@ describe('AuthController', () => {
     return { cookie: jest.fn(), clearCookie: jest.fn() };
   }
 
+  function mockRequest(overrides: Record<string, unknown> = {}) {
+    return { header: jest.fn(() => undefined), ...overrides };
+  }
+
   function makeController(deps: ReturnType<typeof makeDependencies>) {
     return new AuthController(deps.identityService as never, deps.sessionService as never, deps.recoveryService as never, deps.passwordHasher as never, deps.identityRepository as never, deps.config as never);
   }
@@ -56,7 +60,7 @@ describe('AuthController', () => {
     const deps = makeDependencies();
     const controller = makeController(deps);
 
-    await expect(controller.login({ email: 'unknown@example.com', password: 'wrong' }, mockResponse() as never)).rejects.toMatchObject({ status: 401, code: 'UNAUTHENTICATED' });
+    await expect(controller.login({ email: 'unknown@example.com', password: 'wrong' }, mockRequest() as never, mockResponse() as never)).rejects.toMatchObject({ status: 401, code: 'UNAUTHENTICATED' });
   });
 
   it('returns 429 after 5 failed attempts', async () => {
@@ -66,7 +70,7 @@ describe('AuthController', () => {
     deps.passwordHasher.verify.mockResolvedValue(false);
     const controller = makeController(deps);
 
-    await expect(controller.login({ email: 'alice@example.com', password: 'wrong' }, mockResponse() as never)).rejects.toMatchObject({ status: 429, code: 'RATE_LIMITED' });
+    await expect(controller.login({ email: 'alice@example.com', password: 'wrong' }, mockRequest() as never, mockResponse() as never)).rejects.toMatchObject({ status: 429, code: 'RATE_LIMITED' });
   });
 
   it('returns a secure cookie and CSRF token on valid login', async () => {
@@ -77,7 +81,7 @@ describe('AuthController', () => {
     const controller = makeController(deps);
     const res = mockResponse();
 
-    const result = await controller.login({ email: 'alice@example.com', password: 'password' }, res as never);
+    const result = await controller.login({ email: 'alice@example.com', password: 'password' }, mockRequest() as never, res as never);
 
     expect(result.data.userId).toBe('user-1');
     expect(deps.sessionService.create).toHaveBeenCalledWith('user-1', expect.anything());
@@ -91,12 +95,12 @@ describe('AuthController', () => {
     deps.sessionService.validate.mockResolvedValueOnce({ userId: 'user-1', sessionId: 'session-1' });
     const controller = makeController(deps);
     const res = mockResponse();
-    const req = { cookies: { commerce_session: 'raw-token' } };
+    const req = { cookies: { commerce_session: 'raw-token' }, header: jest.fn(() => undefined) };
 
     const result = await controller.logout(req as never, res as never);
 
     expect(result).toEqual({ data: { accepted: true } });
-    expect(deps.sessionService.revoke).toHaveBeenCalledWith('session-1');
+    expect(deps.sessionService.revoke).toHaveBeenCalledWith('session-1', undefined);
     expect(deps.sessionService.revokeAllForUser).not.toHaveBeenCalled();
     expect(res.clearCookie).toHaveBeenCalledWith('commerce_session', expect.anything());
     expect(res.clearCookie).toHaveBeenCalledWith('csrf_token', expect.anything());
@@ -129,7 +133,7 @@ describe('AuthController', () => {
     const deps = makeDependencies();
     const controller = makeController(deps);
 
-    const result = await controller.requestPasswordReset({ email: 'any@example.com' });
+    const result = await controller.requestPasswordReset({ email: 'any@example.com' }, mockRequest() as never);
 
     expect(result).toEqual({ data: { accepted: true } });
   });
@@ -138,9 +142,9 @@ describe('AuthController', () => {
     const deps = makeDependencies();
     const controller = makeController(deps);
 
-    const result = await controller.requestEmailChange({ newEmail: 'new@example.com' }, { userId: 'user-1' } as never);
+    const result = await controller.requestEmailChange({ newEmail: 'new@example.com' }, { userId: 'user-1', header: jest.fn(() => undefined) } as never);
 
     expect(result).toEqual({ data: { accepted: true } });
-    expect(deps.recoveryService.requestEmailChange).toHaveBeenCalledWith({ userId: 'user-1', newEmail: 'new@example.com' });
+    expect(deps.recoveryService.requestEmailChange).toHaveBeenCalledWith({ userId: 'user-1', newEmail: 'new@example.com' }, undefined);
   });
 });

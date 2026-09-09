@@ -2,6 +2,7 @@ import { Inject } from '@nestjs/common';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import type { RequestContext } from '../../auth/application/session.service';
 import { ApiError } from '../../http/api-error';
+import { AuditService } from '../../audit/audit.service';
 import { ROLE_CODES, type PermissionCode, type RoleCode } from '../../authorization/domain/permission';
 import { STORE_REPOSITORY } from './store.tokens';
 import { IDENTITY_REPOSITORY, EMAIL_DELIVERY } from '../../identity/application/identity.tokens';
@@ -68,6 +69,7 @@ export class InvitationService {
     private readonly identity: IdentityStore,
     @Inject(EMAIL_DELIVERY)
     private readonly emailDelivery: EmailDelivery,
+    private readonly auditService?: AuditService,
   ) {}
 
   async invite(context: RequestContext, storeId: string, email: string, roleCode: RoleCode): Promise<InvitationRecord> {
@@ -97,6 +99,16 @@ export class InvitationService {
       recipient: email,
       actionUrl: `/invitations/accept?token=${rawToken}`,
       templateData: { email, storeId, roleCode },
+    });
+
+    await this.auditService?.log({
+      actorUserId: context.userId,
+      storeId,
+      action: 'invitation.invite',
+      resourceType: 'invitation',
+      resourceId: invitation.id,
+      requestId: context.requestId,
+      afterData: { email, roleCode },
     });
 
     return invitation;
@@ -138,6 +150,16 @@ export class InvitationService {
       templateData: { email: invitation.email, storeId, roleCode: invitation.roleCode },
     });
 
+    await this.auditService?.log({
+      actorUserId: context.userId,
+      storeId,
+      action: 'invitation.resend',
+      resourceType: 'invitation',
+      resourceId: invitation.id,
+      requestId: context.requestId,
+      afterData: { email: invitation.email, roleCode: invitation.roleCode },
+    });
+
     return invitation;
   }
 
@@ -155,11 +177,24 @@ export class InvitationService {
       if (existing.status !== 'PENDING') {
         throw new ApiError(400, 'INVITATION_NOT_PENDING', 'Invitation is not pending');
       }
-      return this.repository.revokeInvitation(invitationId, executor);
+      const result = await this.repository.revokeInvitation(invitationId, executor);
+
+      await this.auditService?.log({
+        actorUserId: context.userId,
+        storeId,
+        action: 'invitation.revoke',
+        resourceType: 'invitation',
+        resourceId: result.id,
+        requestId: context.requestId,
+        beforeData: { status: existing.status },
+        afterData: { status: 'REVOKED' },
+      });
+
+      return result;
     });
   }
 
-  async accept(rawToken: string, userId: string): Promise<{ membership: MembershipRecord }> {
+  async accept(rawToken: string, userId: string, requestId?: string): Promise<{ membership: MembershipRecord }> {
     const tokenHash = createHash('sha256').update(rawToken).digest('hex');
     return this.repository.transaction(async (executor) => {
       const invitation = await this.repository.findInvitationByTokenHash(tokenHash, executor);
@@ -180,23 +215,37 @@ export class InvitationService {
         throw new ApiError(400, 'INVITATION_INVALID', 'Invitation is invalid or expired');
       }
       const existingMembership = await this.repository.findMembership(invitation.storeId, userId, executor);
+      let membership: MembershipRecord;
       if (existingMembership) {
         if (existingMembership.status === 'LEFT' || existingMembership.status === 'REMOVED') {
           await this.repository.updateMembershipStatus(existingMembership.id, 'ACTIVE', executor);
           const updated = await this.repository.updateMembershipRole(existingMembership.id, invitation.roleCode, executor);
-          return { membership: updated };
+          membership = updated;
+        } else if (existingMembership.status === 'ACTIVE' || existingMembership.status === 'SUSPENDED' || existingMembership.status === 'INVITED') {
+          membership = existingMembership;
+        } else {
+          membership = existingMembership;
         }
-        if (existingMembership.status === 'ACTIVE' || existingMembership.status === 'SUSPENDED' || existingMembership.status === 'INVITED') {
-          return { membership: existingMembership };
-        }
+      } else {
+        membership = await this.repository.createMembership({
+          id: randomUUID(),
+          storeId: invitation.storeId,
+          userId,
+          roleCode: invitation.roleCode,
+          status: 'ACTIVE',
+        }, executor);
       }
-      const membership = await this.repository.createMembership({
-        id: randomUUID(),
+
+      await this.auditService?.log({
+        actorUserId: userId,
         storeId: invitation.storeId,
-        userId,
-        roleCode: invitation.roleCode,
-        status: 'ACTIVE',
-      }, executor);
+        action: 'invitation.accept',
+        resourceType: 'invitation',
+        resourceId: invitation.id,
+        requestId,
+        afterData: { membershipId: membership.id, roleCode: membership.roleCode },
+      });
+
       return { membership };
     });
   }

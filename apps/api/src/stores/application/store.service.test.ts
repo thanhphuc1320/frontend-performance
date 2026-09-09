@@ -12,6 +12,8 @@ describe('StoreService', () => {
       listForUser: jest.Mock;
       findMembership: jest.Mock;
       findByIdempotencyKey: jest.Mock;
+      updateStore: jest.Mock;
+      deactivateStore: jest.Mock;
     };
     const repository: TestRepository = {
       transaction: jest.fn(async <T>(work: (tx: unknown) => Promise<T>): Promise<T> => work(repository)),
@@ -20,6 +22,8 @@ describe('StoreService', () => {
       createMembership: jest.fn(async () => ({ id: 'membership-1', storeId: store.id, userId: user.id, roleCode: 'OWNER', status: 'ACTIVE' as const })),
       listForUser: jest.fn(async () => [store]),
       findMembership: jest.fn(async () => null),
+      updateStore: jest.fn(async () => store),
+      deactivateStore: jest.fn(async () => ({ ...store, status: 'DEACTIVATED' as const })),
     };
     const identity = { findUserById: jest.fn(async () => user) };
     return { user, store, repository, identity, service: new StoreService(repository, identity) };

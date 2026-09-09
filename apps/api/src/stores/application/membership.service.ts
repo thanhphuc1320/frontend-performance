@@ -1,6 +1,7 @@
 import { Inject } from '@nestjs/common';
 import type { RequestContext } from '../../auth/application/session.service';
 import { ApiError } from '../../http/api-error';
+import { AuditService } from '../../audit/audit.service';
 import { ROLE_CODES, type PermissionCode, type RoleCode } from '../../authorization/domain/permission';
 import { STORE_REPOSITORY } from './store.tokens';
 
@@ -58,6 +59,7 @@ export class MembershipService {
   constructor(
     @Inject(STORE_REPOSITORY)
     private readonly repository: MembershipRepository,
+    private readonly auditService?: AuditService,
   ) {}
 
   async leave(context: RequestContext, storeId: string): Promise<MembershipRecord> {
@@ -69,7 +71,20 @@ export class MembershipService {
         throw new ApiError(403, 'STORE_ACCESS_DENIED', 'Store access denied');
       }
       assertValidStatus(membership.status, 'LEFT');
-      return this.repository.updateMembershipStatus(membership.id, 'LEFT', executor);
+      const result = await this.repository.updateMembershipStatus(membership.id, 'LEFT', executor);
+
+      await this.auditService?.log({
+        actorUserId: context.userId,
+        storeId,
+        action: 'membership.leave',
+        resourceType: 'membership',
+        resourceId: result.id,
+        requestId: context.requestId,
+        beforeData: { status: membership.status },
+        afterData: { status: 'LEFT' },
+      });
+
+      return result;
     });
   }
 
@@ -102,6 +117,18 @@ export class MembershipService {
       }
       const result = await this.repository.updateMembershipRole(targetMembership.id, roleCode, executor);
       await this.recheckActorMembership(storeId, context.userId, executor);
+
+      await this.auditService?.log({
+        actorUserId: context.userId,
+        storeId,
+        action: 'membership.role_change',
+        resourceType: 'membership',
+        resourceId: result.id,
+        requestId: context.requestId,
+        beforeData: { roleCode: targetMembership.roleCode },
+        afterData: { roleCode: result.roleCode },
+      });
+
       return result;
     });
   }
@@ -137,6 +164,18 @@ export class MembershipService {
       }
       const result = await this.repository.updateMembershipStatus(targetMembership.id, nextStatus, executor);
       await this.recheckActorMembership(storeId, context.userId, executor);
+
+      await this.auditService?.log({
+        actorUserId: context.userId,
+        storeId,
+        action: nextStatus === 'SUSPENDED' ? 'membership.suspend' : 'membership.remove',
+        resourceType: 'membership',
+        resourceId: result.id,
+        requestId: context.requestId,
+        beforeData: { status: targetMembership.status },
+        afterData: { status: nextStatus },
+      });
+
       return result;
     });
   }

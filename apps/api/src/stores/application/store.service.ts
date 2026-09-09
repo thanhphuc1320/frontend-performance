@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { UserStatus } from '../../identity/domain/user';
 import type { IdentityStore } from '../../identity/application/identity.service';
 import { ApiError } from '../../http/api-error';
+import { AuditService } from '../../audit/audit.service';
 import { Inject } from '@nestjs/common';
 import { IDENTITY_REPOSITORY } from '../../identity/application/identity.tokens';
 import { STORE_REPOSITORY } from './store.tokens';
@@ -16,6 +17,8 @@ type StoreRepository = {
   listForUser(userId: string): Promise<StoreRecord[]>;
   findMembership(storeId: string, userId: string): Promise<MembershipRecord | null>;
   findByIdempotencyKey(userId: string, idempotencyKey: string): Promise<{ store: StoreRecord; membership: MembershipRecord } | null>;
+  updateStore(storeId: string, input: { name?: string; timezone?: string; currency?: string }, executor?: unknown): Promise<StoreRecord>;
+  deactivateStore(storeId: string, executor?: unknown): Promise<StoreRecord>;
   transaction?<T>(work: (executor: unknown) => Promise<T>): Promise<T>;
 };
 
@@ -27,9 +30,10 @@ export class StoreService {
     private readonly identity: Pick<IdentityStore, 'findUserById'>,
     @Inject(API_CONFIG)
     private readonly config: Pick<ApiConfig, 'NODE_ENV'> = { NODE_ENV: 'test' },
+    private readonly auditService?: AuditService,
   ) {}
 
-  async createFirstStore(userId: string, input: { name: string; timezone?: string; currency?: string }, idempotencyKey: string): Promise<{ store: StoreRecord; membership: MembershipRecord }> {
+  async createFirstStore(userId: string, input: { name: string; timezone?: string; currency?: string }, idempotencyKey: string, requestId?: string): Promise<{ store: StoreRecord; membership: MembershipRecord }> {
     const user = await this.identity.findUserById(userId);
     if (!user) throw new ApiError(401, 'UNAUTHENTICATED', 'Authentication required');
     if (user.status !== UserStatus.ACTIVE) throw new ApiError(403, 'EMAIL_VERIFICATION_REQUIRED', 'Email verification required');
@@ -48,7 +52,19 @@ export class StoreService {
 
     try {
       const create = (executor: unknown) => this.createStoreAndOwner(userId, { name, timezone, currency: 'VND', idempotencyKey }, executor);
-      return this.repository.transaction ? await this.repository.transaction(create) : await create(undefined);
+      const result = this.repository.transaction ? await this.repository.transaction(create) : await create(undefined);
+
+      await this.auditService?.log({
+        actorUserId: userId,
+        storeId: result.store.id,
+        action: 'store.create',
+        resourceType: 'store',
+        resourceId: result.store.id,
+        requestId,
+        afterData: { name: result.store.name, timezone: result.store.timezone, currency: result.store.currency },
+      });
+
+      return result;
     } catch (error) {
       if (!isConflict(error)) throw error;
       const existing = await this.repository.findByIdempotencyKey(userId, idempotencyKey);
@@ -74,6 +90,60 @@ export class StoreService {
     const user = await this.identity.findUserById(userId);
     if (!user) throw new ApiError(401, 'UNAUTHENTICATED', 'Authentication required');
     if (user.status !== UserStatus.ACTIVE) throw new ApiError(403, 'EMAIL_VERIFICATION_REQUIRED', 'Email verification required');
+  }
+
+  async updateStore(userId: string, storeId: string, input: { name?: string; timezone?: string; currency?: string }, requestId?: string): Promise<StoreRecord> {
+    await this.requireActiveUser(userId);
+    const stores = await this.repository.listForUser(userId);
+    const store = stores.find((s) => s.id === storeId && s.status === 'ACTIVE');
+    if (!store) throw new ApiError(403, 'STORE_ACCESS_DENIED', 'Store access denied');
+    const membership = await this.repository.findMembership(storeId, userId);
+    if (!membership || membership.status !== 'ACTIVE' || membership.roleCode !== 'OWNER') {
+      throw new ApiError(403, 'STORE_ACCESS_DENIED', 'Store access denied');
+    }
+    if (input.timezone !== undefined && !isIanaTimezone(input.timezone)) throw new ApiError(400, 'VALIDATION_ERROR', 'Invalid timezone');
+    if (input.currency !== undefined && input.currency !== 'VND') throw new ApiError(400, 'VALIDATION_ERROR', 'Unsupported currency');
+
+    const updated = await this.repository.updateStore(storeId, input);
+
+    await this.auditService?.log({
+      actorUserId: userId,
+      storeId,
+      action: 'store.update',
+      resourceType: 'store',
+      resourceId: storeId,
+      requestId,
+      beforeData: { name: store.name, timezone: store.timezone, currency: store.currency },
+      afterData: { name: updated.name, timezone: updated.timezone, currency: updated.currency },
+    });
+
+    return updated;
+  }
+
+  async deactivateStore(userId: string, storeId: string, requestId?: string): Promise<StoreRecord> {
+    await this.requireActiveUser(userId);
+    const stores = await this.repository.listForUser(userId);
+    const store = stores.find((s) => s.id === storeId && s.status === 'ACTIVE');
+    if (!store) throw new ApiError(403, 'STORE_ACCESS_DENIED', 'Store access denied');
+    const membership = await this.repository.findMembership(storeId, userId);
+    if (!membership || membership.status !== 'ACTIVE' || membership.roleCode !== 'OWNER') {
+      throw new ApiError(403, 'STORE_ACCESS_DENIED', 'Store access denied');
+    }
+
+    const updated = await this.repository.deactivateStore(storeId);
+
+    await this.auditService?.log({
+      actorUserId: userId,
+      storeId,
+      action: 'store.deactivate',
+      resourceType: 'store',
+      resourceId: storeId,
+      requestId,
+      beforeData: { status: 'ACTIVE' },
+      afterData: { status: 'DEACTIVATED' },
+    });
+
+    return updated;
   }
 
   private async createStoreAndOwner(userId: string, input: { name: string; timezone: string; currency: string; idempotencyKey: string }, executor: unknown): Promise<{ store: StoreRecord; membership: MembershipRecord }> {

@@ -6,12 +6,14 @@ describe('AuthGuard', () => {
   const config = { SESSION_COOKIE_NAME: 'commerce_session' };
 
   function makeContext(options: { method?: string; cookies?: Record<string, string>; headers?: Record<string, string>; params?: Record<string, string>; query?: Record<string, string> } = {}): ExecutionContext {
+    const headers = options.headers ?? {};
     const req = {
       method: options.method ?? 'GET',
       cookies: options.cookies ?? {},
-      headers: options.headers ?? {},
+      headers,
       params: options.params ?? {},
       query: options.query ?? {},
+      header: (name: string) => headers[name.toLowerCase()],
     };
     return {
       switchToHttp: () => ({

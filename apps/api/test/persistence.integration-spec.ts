@@ -21,13 +21,13 @@ describe('Auth/Store/RBAC persistence', () => {
   });
 
   beforeEach(async () => {
-    await client.query('TRUNCATE invitations, store_memberships, stores, email_tokens, sessions, users CASCADE');
+    await client.query('TRUNCATE audit_logs, invitations, store_memberships, stores, email_tokens, sessions, users CASCADE');
   });
 
   it('creates the required schema and fixed role catalog', async () => {
     const tables = await client.query("SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename <> 'schema_migrations' ORDER BY tablename");
     expect(tables.rows.map((row) => row.tablename)).toEqual([
-      'email_tokens', 'invitations', 'permissions', 'role_permissions', 'roles', 'sessions', 'store_memberships', 'stores', 'users',
+      'audit_logs', 'email_tokens', 'invitations', 'permissions', 'role_permissions', 'roles', 'sessions', 'store_memberships', 'stores', 'users',
     ]);
 
     const roles = await client.query('SELECT code FROM roles ORDER BY code');

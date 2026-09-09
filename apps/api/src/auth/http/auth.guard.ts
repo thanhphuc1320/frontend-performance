@@ -43,9 +43,11 @@ export class AuthGuard implements CanActivate {
     }
 
     const storeId = this.extractStoreId(request);
+    const requestId = request.header('x-request-id')?.trim() || undefined;
     const requestContext: Record<string, unknown> = {
       userId: sessionContext.userId,
       sessionId: sessionContext.sessionId,
+      requestId,
     };
 
     if (storeId) {
