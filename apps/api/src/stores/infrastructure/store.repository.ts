@@ -155,6 +155,16 @@ export class StoreRepository {
     return { id: row.id, name: row.name, timezone: row.timezone, currency: row.currency, status: row.status, createdBy: row.created_by };
   }
 
+  async reactivateStore(storeId: string, executor: Database = this.database): Promise<StoreRecord> {
+    const result = await executor.query<StoreRow>(
+      `UPDATE stores SET status = 'ACTIVE', updated_at = now() WHERE id = $1 RETURNING id, name, timezone, currency, status, created_by`,
+      [storeId],
+    );
+    if (result.rowCount === 0) throw new RepositoryError('NOT_FOUND', 'Store not found');
+    const row = result.rows[0]!;
+    return { id: row.id, name: row.name, timezone: row.timezone, currency: row.currency, status: row.status, createdBy: row.created_by };
+  }
+
   async findStoreById(storeId: string, executor: Database = this.database): Promise<StoreRecord | null> {
     const result = await executor.query<StoreRow>(
       `SELECT id, name, timezone, currency, status, created_by FROM stores WHERE id = $1`, [storeId],

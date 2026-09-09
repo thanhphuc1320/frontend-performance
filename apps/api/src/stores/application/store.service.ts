@@ -19,6 +19,8 @@ type StoreRepository = {
   findByIdempotencyKey(userId: string, idempotencyKey: string): Promise<{ store: StoreRecord; membership: MembershipRecord } | null>;
   updateStore(storeId: string, input: { name?: string; timezone?: string; currency?: string }, executor?: unknown): Promise<StoreRecord>;
   deactivateStore(storeId: string, executor?: unknown): Promise<StoreRecord>;
+  reactivateStore(storeId: string, executor?: unknown): Promise<StoreRecord>;
+  findStoreById(storeId: string, executor?: unknown): Promise<StoreRecord | null>;
   transaction?<T>(work: (executor: unknown) => Promise<T>): Promise<T>;
 };
 
@@ -54,7 +56,7 @@ export class StoreService {
       const create = (executor: unknown) => this.createStoreAndOwner(userId, { name, timezone, currency: 'VND', idempotencyKey }, executor);
       const result = this.repository.transaction ? await this.repository.transaction(create) : await create(undefined);
 
-      await this.auditService?.log({
+      this.auditService?.log({
         actorUserId: userId,
         storeId: result.store.id,
         action: 'store.create',
@@ -62,7 +64,7 @@ export class StoreService {
         resourceId: result.store.id,
         requestId,
         afterData: { name: result.store.name, timezone: result.store.timezone, currency: result.store.currency },
-      });
+      }).catch(() => {});
 
       return result;
     } catch (error) {
@@ -106,7 +108,7 @@ export class StoreService {
 
     const updated = await this.repository.updateStore(storeId, input);
 
-    await this.auditService?.log({
+    this.auditService?.log({
       actorUserId: userId,
       storeId,
       action: 'store.update',
@@ -115,7 +117,7 @@ export class StoreService {
       requestId,
       beforeData: { name: store.name, timezone: store.timezone, currency: store.currency },
       afterData: { name: updated.name, timezone: updated.timezone, currency: updated.currency },
-    });
+    }).catch(() => {});
 
     return updated;
   }
@@ -132,16 +134,41 @@ export class StoreService {
 
     const updated = await this.repository.deactivateStore(storeId);
 
-    await this.auditService?.log({
-      actorUserId: userId,
-      storeId,
-      action: 'store.deactivate',
-      resourceType: 'store',
-      resourceId: storeId,
-      requestId,
-      beforeData: { status: 'ACTIVE' },
-      afterData: { status: 'DEACTIVATED' },
-    });
+    this.auditService?.log({
+        actorUserId: userId,
+        storeId,
+        action: 'store.deactivate',
+        resourceType: 'store',
+        resourceId: storeId,
+        requestId,
+        beforeData: { status: 'ACTIVE' },
+        afterData: { status: 'DEACTIVATED' },
+      }).catch(() => {});
+
+    return updated;
+  }
+
+  async reactivateStore(userId: string, storeId: string, requestId?: string): Promise<StoreRecord> {
+    await this.requireActiveUser(userId);
+    const store = await this.repository.findStoreById(storeId);
+    if (!store || store.status !== 'DEACTIVATED') throw new ApiError(403, 'STORE_ACCESS_DENIED', 'Store access denied');
+    const membership = await this.repository.findMembership(storeId, userId);
+    if (!membership || membership.status !== 'ACTIVE' || membership.roleCode !== 'OWNER') {
+      throw new ApiError(403, 'STORE_ACCESS_DENIED', 'Store access denied');
+    }
+
+    const updated = await this.repository.reactivateStore(storeId);
+
+    this.auditService?.log({
+        actorUserId: userId,
+        storeId,
+        action: 'store.reactivate',
+        resourceType: 'store',
+        resourceId: storeId,
+        requestId,
+        beforeData: { status: 'DEACTIVATED' },
+        afterData: { status: 'ACTIVE' },
+      }).catch(() => {});
 
     return updated;
   }

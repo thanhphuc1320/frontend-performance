@@ -73,7 +73,7 @@ export class MembershipService {
       assertValidStatus(membership.status, 'LEFT');
       const result = await this.repository.updateMembershipStatus(membership.id, 'LEFT', executor);
 
-      await this.auditService?.log({
+      this.auditService?.log({
         actorUserId: context.userId,
         storeId,
         action: 'membership.leave',
@@ -82,7 +82,7 @@ export class MembershipService {
         requestId: context.requestId,
         beforeData: { status: membership.status },
         afterData: { status: 'LEFT' },
-      });
+      }).catch(() => {});
 
       return result;
     });
@@ -118,7 +118,7 @@ export class MembershipService {
       const result = await this.repository.updateMembershipRole(targetMembership.id, roleCode, executor);
       await this.recheckActorMembership(storeId, context.userId, executor);
 
-      await this.auditService?.log({
+      this.auditService?.log({
         actorUserId: context.userId,
         storeId,
         action: 'membership.role_change',
@@ -127,7 +127,7 @@ export class MembershipService {
         requestId: context.requestId,
         beforeData: { roleCode: targetMembership.roleCode },
         afterData: { roleCode: result.roleCode },
-      });
+      }).catch(() => {});
 
       return result;
     });
@@ -165,7 +165,7 @@ export class MembershipService {
       const result = await this.repository.updateMembershipStatus(targetMembership.id, nextStatus, executor);
       await this.recheckActorMembership(storeId, context.userId, executor);
 
-      await this.auditService?.log({
+      this.auditService?.log({
         actorUserId: context.userId,
         storeId,
         action: nextStatus === 'SUSPENDED' ? 'membership.suspend' : 'membership.remove',
@@ -174,7 +174,7 @@ export class MembershipService {
         requestId: context.requestId,
         beforeData: { status: targetMembership.status },
         afterData: { status: nextStatus },
-      });
+      }).catch(() => {});
 
       return result;
     });

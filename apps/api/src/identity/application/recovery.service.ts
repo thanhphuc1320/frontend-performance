@@ -45,13 +45,13 @@ export class RecoveryService {
       templateData: { email },
     });
 
-    await this.auditService?.log({
+    this.auditService?.log({
       actorUserId: user.id,
       action: 'password.reset.request',
       resourceType: 'user',
       resourceId: user.id,
       requestId,
-    });
+    }).catch(() => {});
 
     return safeResponse;
   }
@@ -75,13 +75,22 @@ export class RecoveryService {
       await this.repository.updateUser(updated, executor);
       await this.sessionRevoker.revokeAllForUser(user.id);
 
-      await this.auditService?.log({
+      this.auditService?.log({
+        actorUserId: user.id,
+        action: 'session.revoke_all',
+        resourceType: 'session',
+        resourceId: user.id,
+        requestId,
+        afterData: { reason: 'password_reset' },
+      }).catch(() => {});
+
+      this.auditService?.log({
         actorUserId: user.id,
         action: 'password.reset.complete',
         resourceType: 'user',
         resourceId: user.id,
         requestId,
-      });
+      }).catch(() => {});
 
       return safeResponse;
     });
@@ -105,14 +114,14 @@ export class RecoveryService {
       templateData: { email: newEmail },
     });
 
-    await this.auditService?.log({
+    this.auditService?.log({
       actorUserId: user.id,
       action: 'email.change.request',
       resourceType: 'user',
       resourceId: user.id,
       requestId,
       afterData: { newEmail },
-    });
+    }).catch(() => {});
 
     return safeResponse;
   }
@@ -132,7 +141,16 @@ export class RecoveryService {
       await this.repository.updateEmail(user.id, token.email, executor);
       await this.sessionRevoker.revokeAllForUser(user.id);
 
-      await this.auditService?.log({
+      this.auditService?.log({
+        actorUserId: user.id,
+        action: 'session.revoke_all',
+        resourceType: 'session',
+        resourceId: user.id,
+        requestId,
+        afterData: { reason: 'email_change' },
+      }).catch(() => {});
+
+      this.auditService?.log({
         actorUserId: user.id,
         action: 'email.change.complete',
         resourceType: 'user',
@@ -140,7 +158,7 @@ export class RecoveryService {
         requestId,
         beforeData: { oldEmail },
         afterData: { newEmail: token.email },
-      });
+      }).catch(() => {});
 
       return safeResponse;
     });

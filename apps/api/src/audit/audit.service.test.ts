@@ -95,6 +95,52 @@ describe('AuditService', () => {
     expect(call.afterData.currency).toBe('VND');
   });
 
+  it('recursively redacts nested objects', async () => {
+    const repository = makeRepository();
+    const service = new AuditService(repository);
+
+    await service.log({
+      actorUserId: 'user-1',
+      action: 'user.register',
+      resourceType: 'user',
+      afterData: {
+        profile: { name: 'Alice', password: 'secret' },
+        metadata: { apiSecret: 'shh' },
+      },
+    });
+
+    const call = repository.insert.mock.calls[0]![0] as { afterData: Record<string, unknown> };
+    const profile = call.afterData.profile as Record<string, unknown>;
+    expect(profile.name).toBe('Alice');
+    expect(profile.password).toBe('[REDACTED]');
+    const metadata = call.afterData.metadata as Record<string, unknown>;
+    expect(metadata.apiSecret).toBe('[REDACTED]');
+  });
+
+  it('recursively redacts arrays', async () => {
+    const repository = makeRepository();
+    const service = new AuditService(repository);
+
+    await service.log({
+      actorUserId: 'user-1',
+      action: 'batch.update',
+      resourceType: 'user',
+      afterData: {
+        items: [
+          { name: 'Alice', password: 'secret1' },
+          { name: 'Bob', password: 'secret2' },
+        ],
+      },
+    });
+
+    const call = repository.insert.mock.calls[0]![0] as { afterData: Record<string, unknown> };
+    const items = call.afterData.items as Array<Record<string, unknown>>;
+    expect(items[0]!.name).toBe('Alice');
+    expect(items[0]!.password).toBe('[REDACTED]');
+    expect(items[1]!.name).toBe('Bob');
+    expect(items[1]!.password).toBe('[REDACTED]');
+  });
+
   it('allows beforeData and afterData to be omitted', async () => {
     const repository = makeRepository();
     const service = new AuditService(repository);

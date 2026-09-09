@@ -101,7 +101,7 @@ export class InvitationService {
       templateData: { email, storeId, roleCode },
     });
 
-    await this.auditService?.log({
+    this.auditService?.log({
       actorUserId: context.userId,
       storeId,
       action: 'invitation.invite',
@@ -109,7 +109,7 @@ export class InvitationService {
       resourceId: invitation.id,
       requestId: context.requestId,
       afterData: { email, roleCode },
-    });
+    }).catch(() => {});
 
     return invitation;
   }
@@ -150,7 +150,7 @@ export class InvitationService {
       templateData: { email: invitation.email, storeId, roleCode: invitation.roleCode },
     });
 
-    await this.auditService?.log({
+    this.auditService?.log({
       actorUserId: context.userId,
       storeId,
       action: 'invitation.resend',
@@ -158,7 +158,7 @@ export class InvitationService {
       resourceId: invitation.id,
       requestId: context.requestId,
       afterData: { email: invitation.email, roleCode: invitation.roleCode },
-    });
+    }).catch(() => {});
 
     return invitation;
   }
@@ -179,7 +179,7 @@ export class InvitationService {
       }
       const result = await this.repository.revokeInvitation(invitationId, executor);
 
-      await this.auditService?.log({
+      this.auditService?.log({
         actorUserId: context.userId,
         storeId,
         action: 'invitation.revoke',
@@ -188,7 +188,7 @@ export class InvitationService {
         requestId: context.requestId,
         beforeData: { status: existing.status },
         afterData: { status: 'REVOKED' },
-      });
+      }).catch(() => {});
 
       return result;
     });
@@ -236,7 +236,7 @@ export class InvitationService {
         }, executor);
       }
 
-      await this.auditService?.log({
+      this.auditService?.log({
         actorUserId: userId,
         storeId: invitation.storeId,
         action: 'invitation.accept',
@@ -244,7 +244,7 @@ export class InvitationService {
         resourceId: invitation.id,
         requestId,
         afterData: { membershipId: membership.id, roleCode: membership.roleCode },
-      });
+      }).catch(() => {});
 
       return { membership };
     });

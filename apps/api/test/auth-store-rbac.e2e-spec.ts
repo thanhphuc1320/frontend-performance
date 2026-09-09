@@ -240,7 +240,7 @@ describe('auth and Store foundation', () => {
       .post(`/api/v1/stores/${storeId}/members/leave`)
       .set('Cookie', invitee.cookie)
       .set('x-csrf-token', invitee.csrf)
-      .expect(201)
+      .expect(200)
       .expect((res) => {
         expect(res.body.data.status).toBe('LEFT');
       });
@@ -278,7 +278,7 @@ describe('auth and Store foundation', () => {
       .post(`/api/v1/stores/${storeId}/members/${newMember.userId}/remove`)
       .set('Cookie', recoveredCookie)
       .set('x-csrf-token', recoveredCsrfToken)
-      .expect(201)
+      .expect(200)
       .expect((res) => {
         expect(res.body.data.status).toBe('REMOVED');
       });
@@ -291,6 +291,81 @@ describe('auth and Store foundation', () => {
       .expect(409)
       .expect((res) => {
         expect(res.body.error.code).toBe('FINAL_OWNER_PROTECTED');
+      });
+
+    // 13. Deactivate and reactivate Store lifecycle
+    await request(app.getHttpServer())
+      .post(`/api/v1/stores/${storeId}/deactivate`)
+      .set('Cookie', recoveredCookie)
+      .set('x-csrf-token', recoveredCsrfToken)
+      .expect(200)
+      .expect((res) => {
+        expect(res.body.data.status).toBe('DEACTIVATED');
+      });
+
+    // Store no longer appears in list after deactivation
+    await request(app.getHttpServer())
+      .get('/api/v1/stores')
+      .set('Cookie', recoveredCookie)
+      .expect(200)
+      .expect((res) => {
+        expect(res.body.data).toHaveLength(0);
+      });
+
+    // Reactivate Store
+    await request(app.getHttpServer())
+      .post(`/api/v1/stores/${storeId}/reactivate`)
+      .set('Cookie', recoveredCookie)
+      .set('x-csrf-token', recoveredCsrfToken)
+      .expect(200)
+      .expect((res) => {
+        expect(res.body.data.status).toBe('ACTIVE');
+      });
+
+    // Store appears again after reactivation
+    await request(app.getHttpServer())
+      .get('/api/v1/stores')
+      .set('Cookie', recoveredCookie)
+      .expect(200)
+      .expect((res) => {
+        expect(res.body.data).toHaveLength(1);
+        expect(res.body.data[0].id).toBe(storeId);
+      });
+
+    // Non-owner cannot reactivate
+    const nonOwnerAddress = `non-owner-${Date.now()}@example.com`;
+    const nonOwner = await setupUser(nonOwnerAddress);
+    await request(app.getHttpServer())
+      .post(`/api/v1/stores/${storeId}/invitations`)
+      .set('Cookie', recoveredCookie)
+      .set('x-csrf-token', recoveredCsrfToken)
+      .send({ email: nonOwnerAddress, roleCode: 'ADMIN' })
+      .expect(201);
+    const nonOwnerInviteUrl = email.messages.find((m) => m.recipient === nonOwnerAddress && m.actionUrl.includes('invitations'))?.actionUrl;
+    const nonOwnerInviteToken = new URL(`http://localhost${nonOwnerInviteUrl}`).searchParams.get('token')!;
+    await request(app.getHttpServer())
+      .post('/api/v1/invitations/accept')
+      .set('Cookie', nonOwner.cookie)
+      .set('x-csrf-token', nonOwner.csrf)
+      .send({ token: nonOwnerInviteToken })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/stores/${storeId}/deactivate`)
+      .set('Cookie', nonOwner.cookie)
+      .set('x-csrf-token', nonOwner.csrf)
+      .expect(403)
+      .expect((res) => {
+        expect(res.body.error.code).toBe('PERMISSION_DENIED');
+      });
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/stores/${storeId}/reactivate`)
+      .set('Cookie', nonOwner.cookie)
+      .set('x-csrf-token', nonOwner.csrf)
+      .expect(403)
+      .expect((res) => {
+        expect(res.body.error.code).toBe('PERMISSION_DENIED');
       });
 
     await app.close();

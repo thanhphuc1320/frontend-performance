@@ -58,13 +58,13 @@ export class AuthController {
       throw new ApiError(401, 'UNAUTHENTICATED', 'Invalid credentials');
     }
     if (user.isLocked()) {
-      await this.auditService?.log({
+      this.auditService?.log({
         actorUserId: user.id,
         action: 'session.lockout',
         resourceType: 'user',
         resourceId: user.id,
         requestId,
-      });
+      }).catch(() => {});
       throw new ApiError(429, 'RATE_LIMITED', 'Too many failed attempts');
     }
     if (user.status === 'DISABLED') {
@@ -74,14 +74,14 @@ export class AuthController {
     if (!valid) {
       user.recordFailedLogin(this.config.AUTH_LOCKOUT_MAX_ATTEMPTS);
       await this.identityRepository.updateUser(user);
-      await this.auditService?.log({
+      this.auditService?.log({
         actorUserId: user.id,
         action: 'session.login_failure',
         resourceType: 'user',
         resourceId: user.id,
         requestId,
         afterData: { reason: user.isLocked() ? 'lockout' : 'invalid_credentials' },
-      });
+      }).catch(() => {});
       if (user.isLocked()) {
         throw new ApiError(429, 'RATE_LIMITED', 'Too many failed attempts');
       }
@@ -91,13 +91,13 @@ export class AuthController {
     await this.identityRepository.updateUser(user);
     const session = await this.sessionService.create(user.id, { userAgent: undefined, ipAddress: undefined, requestId });
     this.setSessionCookies(res, session.rawToken, session.csrfToken);
-    await this.auditService?.log({
+    this.auditService?.log({
       actorUserId: user.id,
       action: 'session.login',
       resourceType: 'session',
       resourceId: session.sessionId,
       requestId,
-    });
+    }).catch(() => {});
     return { data: { userId: user.id } };
   }
 
@@ -110,13 +110,13 @@ export class AuthController {
       const context = await this.sessionService.validate(rawToken);
       if (context) {
         await this.sessionService.revoke(context.sessionId, requestId);
-        await this.auditService?.log({
+        this.auditService?.log({
           actorUserId: context.userId,
           action: 'session.logout',
           resourceType: 'session',
           resourceId: context.sessionId,
           requestId,
-        });
+        }).catch(() => {});
       }
     }
     this.clearSessionCookies(res);

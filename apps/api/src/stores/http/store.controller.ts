@@ -59,4 +59,12 @@ export class StoreController {
   async deactivate(@Req() request: AuthenticatedRequest, @Param('storeId') storeId: string) {
     return { data: await this.stores.deactivateStore(this.userId(request), storeId, this.requestId(request)) };
   }
+
+  @RequirePermission('store.deactivate')
+  @UseGuards(PermissionGuard)
+  @Post(':storeId/reactivate')
+  @HttpCode(200)
+  async reactivate(@Req() request: AuthenticatedRequest, @Param('storeId') storeId: string) {
+    return { data: await this.stores.reactivateStore(this.userId(request), storeId, this.requestId(request)) };
+  }
 }

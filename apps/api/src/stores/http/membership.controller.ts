@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Req, UnauthorizedException, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, Patch, Post, Req, UnauthorizedException, UseGuards } from '@nestjs/common';
 import type { Request } from 'express';
 import { AuthGuard } from '../../auth/http/auth.guard';
 import { PermissionGuard, RequirePermission } from '../../authorization/http/permission.guard';
@@ -31,18 +31,21 @@ export class MembershipController {
   }
 
   @Post('stores/:storeId/members/leave')
+  @HttpCode(200)
   async leave(@Req() request: AuthenticatedRequest, @Param('storeId') storeId: string) {
     return { data: await this.membershipService.leave(this.context(request), storeId) };
   }
 
   @RequirePermission('members.manage')
   @Post('stores/:storeId/members/:userId/suspend')
+  @HttpCode(200)
   async suspend(@Req() request: AuthenticatedRequest, @Param('storeId') storeId: string, @Param('userId') userId: string) {
     return { data: await this.membershipService.suspend(this.context(request), storeId, userId) };
   }
 
   @RequirePermission('members.manage')
   @Post('stores/:storeId/members/:userId/remove')
+  @HttpCode(200)
   async remove(@Req() request: AuthenticatedRequest, @Param('storeId') storeId: string, @Param('userId') userId: string) {
     return { data: await this.membershipService.remove(this.context(request), storeId, userId) };
   }

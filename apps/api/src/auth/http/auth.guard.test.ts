@@ -154,15 +154,18 @@ describe('AuthGuard', () => {
     expect(req.context.permissions).toEqual([...ROLE_PERMISSIONS.OWNER]);
   });
 
-  it('rejects when store is deactivated', async () => {
+  it('allows deactivated stores through the guard so reactivation can proceed', async () => {
     const service = makeSessionService();
     service.validate.mockResolvedValueOnce({ userId: 'user-1', sessionId: 'session-1' });
     const db = makeDatabase([{ store_status: 'DEACTIVATED', membership_status: 'ACTIVE', role_code: 'OWNER' }]);
     const guard = new AuthGuard(service as never, config as never, db as never);
 
     const context = makeContext({ method: 'GET', cookies: { commerce_session: 'token' }, params: { storeId: 'store-1' } });
+    const result = await guard.canActivate(context);
 
-    await expect(guard.canActivate(context)).rejects.toMatchObject({ status: 403, code: 'STORE_ACCESS_DENIED' });
+    expect(result).toBe(true);
+    const req = context.switchToHttp().getRequest();
+    expect(req.context.role).toBe('OWNER');
   });
 
   it('rejects when store does not exist', async () => {

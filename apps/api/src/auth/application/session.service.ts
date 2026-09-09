@@ -45,13 +45,13 @@ export class SessionService {
 
     const csrfToken = this.generateCsrf(rawToken);
 
-    await this.auditService?.log({
+    this.auditService?.log({
       actorUserId: userId,
       action: 'session.create',
       resourceType: 'session',
       resourceId: sessionId,
       requestId: metadata?.requestId,
-    });
+    }).catch(() => {});
 
     return { sessionId, rawToken, sessionHash, csrfToken };
   }
@@ -78,12 +78,12 @@ export class SessionService {
   async revoke(sessionId: string, requestId?: string): Promise<boolean> {
     const result = await this.sessionRepository.revoke(sessionId);
     if (result) {
-      await this.auditService?.log({
+      this.auditService?.log({
         action: 'session.revoke',
         resourceType: 'session',
         resourceId: sessionId,
         requestId,
-      });
+      }).catch(() => {});
     }
     return result;
   }

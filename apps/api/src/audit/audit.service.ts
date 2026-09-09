@@ -15,14 +15,29 @@ export type AuditRepository = {
 
 const FORBIDDEN_KEYS = ['password', 'token', 'hash', 'cookie', 'csrf', 'secret', 'rawtoken'];
 
-function sanitize(data: Record<string, unknown>): Record<string, unknown> {
+function isForbiddenKey(key: string): boolean {
+  const lowerKey = key.toLowerCase().replace(/[_-]/g, '');
+  return FORBIDDEN_KEYS.some((f) => lowerKey.includes(f));
+}
+
+function sanitizeValue(value: unknown): unknown {
+  if (value === null || value === undefined) return value;
+  if (typeof value === 'object' && !Array.isArray(value)) {
+    return sanitizeObject(value as Record<string, unknown>);
+  }
+  if (Array.isArray(value)) {
+    return value.map(sanitizeValue);
+  }
+  return value;
+}
+
+function sanitizeObject(data: Record<string, unknown>): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(data)) {
-    const lowerKey = key.toLowerCase().replace(/[_-]/g, '');
-    if (FORBIDDEN_KEYS.some((f) => lowerKey.includes(f))) {
+    if (isForbiddenKey(key)) {
       result[key] = '[REDACTED]';
     } else {
-      result[key] = value;
+      result[key] = sanitizeValue(value);
     }
   }
   return result;
@@ -34,8 +49,8 @@ export class AuditService {
   async log(event: AuditEvent): Promise<void> {
     const safeEvent: AuditEvent = {
       ...event,
-      beforeData: event.beforeData ? sanitize(event.beforeData) : undefined,
-      afterData: event.afterData ? sanitize(event.afterData) : undefined,
+      beforeData: event.beforeData ? sanitizeObject(event.beforeData) : undefined,
+      afterData: event.afterData ? sanitizeObject(event.afterData) : undefined,
     };
     await this.repository.insert(safeEvent);
   }

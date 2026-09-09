@@ -100,7 +100,7 @@ describe('Store isolation and authorization security', () => {
       .post(`/api/v1/stores/${storeA}/members/${suspendedUser.userId}/suspend`)
       .set('Cookie', ownerA.cookie)
       .set('x-csrf-token', ownerA.csrf)
-      .expect(201);
+      .expect(200);
     await request(app.getHttpServer())
       .get(`/api/v1/stores/${storeA}/members`)
       .set('Cookie', suspendedUser.cookie)
