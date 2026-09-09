@@ -73,14 +73,14 @@ export class IdentityService {
       templateData: { email },
     });
 
-    await this.auditService?.log({
+    this.auditService?.log({
       actorUserId: userId,
       action: 'user.register',
       resourceType: 'user',
       resourceId: userId,
       requestId,
       afterData: { email, status: 'UNVERIFIED' },
-    });
+    }).catch(() => {});
 
     return safeResponse;
   }
@@ -101,7 +101,7 @@ export class IdentityService {
       }
       await this.repository.updateUser(user, executor);
 
-      await this.auditService?.log({
+      this.auditService?.log({
         actorUserId: user.id,
         action: 'user.verify',
         resourceType: 'user',
@@ -109,7 +109,7 @@ export class IdentityService {
         requestId,
         beforeData: { status: 'UNVERIFIED' },
         afterData: { status: 'ACTIVE' },
-      });
+      }).catch(() => {});
 
       return { verified: true };
     });
