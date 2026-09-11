@@ -11,7 +11,7 @@ describe('VerificationState', () => {
 
   it('renders success state', () => {
     render(React.createElement(VerificationState, { status: 'success' }));
-    expect(screen.getByText(/verified/i)).toBeInTheDocument();
+    expect(screen.getByText(/email verified/i)).toBeInTheDocument();
   });
 
   it('renders error state', () => {
@@ -22,6 +22,6 @@ describe('VerificationState', () => {
 
   it('renders expired token state', () => {
     render(React.createElement(VerificationState, { status: 'expired' }));
-    expect(screen.getByText(/expired/i)).toBeInTheDocument();
+    expect(screen.getByText(/link expired/i)).toBeInTheDocument();
   });
 });

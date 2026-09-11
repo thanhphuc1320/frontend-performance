@@ -1,6 +1,9 @@
 'use client';
 
 import React from 'react';
+import { CheckCircle2, AlertCircle, Loader2, Clock } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
+import { Button } from '../../../components/ui/button';
 
 interface VerificationStateProps {
   status: 'loading' | 'success' | 'error' | 'expired';
@@ -8,22 +11,51 @@ interface VerificationStateProps {
 }
 
 export function VerificationState({ status, error }: VerificationStateProps) {
-  if (status === 'loading') {
-    return <div>Verifying your email...</div>;
-  }
+  const states = {
+    loading: {
+      icon: Loader2,
+      title: 'Verifying your email...',
+      description: 'Please wait while we verify your email address.',
+      iconClass: 'text-primary animate-spin',
+    },
+    success: {
+      icon: CheckCircle2,
+      title: 'Email verified!',
+      description: 'Your email has been successfully verified. You can now sign in.',
+      iconClass: 'text-success',
+    },
+    error: {
+      icon: AlertCircle,
+      title: 'Verification failed',
+      description: error || 'The verification link is invalid or has expired.',
+      iconClass: 'text-danger',
+    },
+    expired: {
+      icon: Clock,
+      title: 'Link expired',
+      description: 'This verification link has expired. Please request a new one.',
+      iconClass: 'text-warning',
+    },
+  };
 
-  if (status === 'success') {
-    return <div>Your email has been verified. You can now log in.</div>;
-  }
-
-  if (status === 'expired') {
-    return <div>This verification link has expired. Please request a new one.</div>;
-  }
+  const state = states[status];
+  const Icon = state.icon;
 
   return (
-    <div>
-      <div>Verification failed.</div>
-      {error && <div role="alert">{error}</div>}
-    </div>
+    <Card className="w-full max-w-md">
+      <CardContent className="flex flex-col items-center py-12 text-center">
+        <Icon className={`h-16 w-16 mb-4 ${state.iconClass}`} />
+        <h2 className="text-xl font-semibold text-text-primary mb-2">{state.title}</h2>
+        <p className="text-text-secondary mb-6">{state.description}</p>
+        {status === 'success' && (
+          <Button onClick={() => window.location.href = '/'}>Go to Dashboard</Button>
+        )}
+        {(status === 'error' || status === 'expired') && (
+          <Button variant="secondary" onClick={() => window.location.reload()}>
+            Try Again
+          </Button>
+        )}
+      </CardContent>
+    </Card>
   );
 }

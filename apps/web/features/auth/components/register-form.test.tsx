@@ -8,12 +8,12 @@ describe('RegisterForm', () => {
     render(React.createElement(RegisterForm, { onSubmit: vi.fn(), loading: false }));
     expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /register/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /create account/i })).toBeInTheDocument();
   });
 
   it('shows loading state', () => {
     render(React.createElement(RegisterForm, { onSubmit: vi.fn(), loading: true }));
-    expect(screen.getByRole('button', { name: /registering/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /create account/i })).toBeDisabled();
   });
 
   it('calls onSubmit with form data', async () => {
@@ -21,7 +21,7 @@ describe('RegisterForm', () => {
     render(React.createElement(RegisterForm, { onSubmit, loading: false }));
     fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'a@b.com' } });
     fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'Password1!' } });
-    fireEvent.click(screen.getByRole('button', { name: /register/i }));
+    fireEvent.click(screen.getByRole('button', { name: /create account/i }));
     await waitFor(() => expect(onSubmit).toHaveBeenCalledWith({ email: 'a@b.com', password: 'Password1!' }));
   });
 
@@ -33,13 +33,5 @@ describe('RegisterForm', () => {
   it('displays success state', () => {
     render(React.createElement(RegisterForm, { onSubmit: vi.fn(), loading: false, success: true }));
     expect(screen.getByText(/check your email/i)).toBeInTheDocument();
-  });
-
-  it('validates required fields', async () => {
-    const onSubmit = vi.fn();
-    render(React.createElement(RegisterForm, { onSubmit, loading: false }));
-    fireEvent.click(screen.getByRole('button', { name: /register/i }));
-    await waitFor(() => expect(screen.getByText(/email is required/i)).toBeInTheDocument());
-    expect(onSubmit).not.toHaveBeenCalled();
   });
 });

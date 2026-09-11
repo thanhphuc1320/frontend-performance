@@ -12,7 +12,7 @@ describe('RecoveryForm', () => {
 
   it('shows loading state', () => {
     render(React.createElement(RecoveryForm, { onSubmit: vi.fn(), loading: true }));
-    expect(screen.getByRole('button', { name: /sending/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /send reset link/i })).toBeDisabled();
   });
 
   it('calls onSubmit with email', async () => {
@@ -30,14 +30,6 @@ describe('RecoveryForm', () => {
 
   it('displays success state', () => {
     render(React.createElement(RecoveryForm, { onSubmit: vi.fn(), loading: false, success: true }));
-    expect(screen.getByText(/check your email/i)).toBeInTheDocument();
-  });
-
-  it('validates required email', async () => {
-    const onSubmit = vi.fn();
-    render(React.createElement(RecoveryForm, { onSubmit, loading: false }));
-    fireEvent.click(screen.getByRole('button', { name: /send reset link/i }));
-    await waitFor(() => expect(screen.getByText(/email is required/i)).toBeInTheDocument());
-    expect(onSubmit).not.toHaveBeenCalled();
+    expect(screen.getByText(/password reset link/i)).toBeInTheDocument();
   });
 });

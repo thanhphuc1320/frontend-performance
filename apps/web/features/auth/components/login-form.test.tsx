@@ -13,7 +13,7 @@ describe('LoginForm', () => {
 
   it('shows loading state', () => {
     render(React.createElement(LoginForm, { onSubmit: vi.fn(), loading: true }));
-    expect(screen.getByRole('button', { name: /signing in/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /sign in/i })).toBeDisabled();
   });
 
   it('calls onSubmit with credentials', async () => {

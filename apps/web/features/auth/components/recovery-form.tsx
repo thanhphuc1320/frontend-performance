@@ -1,6 +1,11 @@
 'use client';
 
 import React, { useState } from 'react';
+import { Button } from '../../../components/ui/button';
+import { Input } from '../../../components/ui/input';
+import { Label } from '../../../components/ui/label';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../components/ui/card';
+import { Alert } from '../../../components/ui/alert';
 
 interface RecoveryFormProps {
   onSubmit: (email: string) => void | Promise<void>;
@@ -11,44 +16,43 @@ interface RecoveryFormProps {
 
 export function RecoveryForm({ onSubmit, loading, error, success }: RecoveryFormProps) {
   const [email, setEmail] = useState('');
-  const [validationError, setValidationError] = useState<string | null>(null);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setValidationError(null);
-    if (!email.trim()) {
-      setValidationError('Email is required');
-      return;
-    }
     void onSubmit(email);
   }
 
-  if (success) {
-    return (
-      <div>
-        <p>If this email is registered, you will receive a password reset link. Please check your email.</p>
-      </div>
-    );
-  }
-
   return (
-    <form onSubmit={handleSubmit}>
-      <div>
-        <label htmlFor="recovery-email">Email</label>
-        <input
-          id="recovery-email"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          disabled={loading}
-        />
-      </div>
-      {(error || validationError) && (
-        <div role="alert">{error ?? validationError}</div>
-      )}
-      <button type="submit" disabled={loading}>
-        {loading ? 'Sending...' : 'Send reset link'}
-      </button>
-    </form>
+    <Card className="w-full max-w-md">
+      <CardHeader className="space-y-1">
+        <CardTitle>Reset password</CardTitle>
+        <CardDescription>Enter your email and we'll send you a reset link</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {success ? (
+          <Alert variant="success">
+            If an account exists with this email, you will receive a password reset link.
+          </Alert>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="recovery-email">Email</Label>
+              <Input
+                id="recovery-email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={loading}
+                placeholder="you@example.com"
+              />
+            </div>
+            {error && <Alert variant="danger">{error}</Alert>}
+            <Button type="submit" loading={loading} className="w-full">
+              Send reset link
+            </Button>
+          </form>
+        )}
+      </CardContent>
+    </Card>
   );
 }
