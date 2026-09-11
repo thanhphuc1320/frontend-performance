@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
 import { X, CheckCircle2, AlertCircle, Info } from 'lucide-react';
 
 interface Toast {
@@ -23,13 +23,23 @@ export function useToast() {
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const timersRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
 
   const showToast = useCallback((message: string, type: Toast['type'] = 'info') => {
     const id = Math.random().toString(36).substring(7);
     setToasts((prev) => [...prev, { id, message, type }]);
-    setTimeout(() => {
+    const timer = setTimeout(() => {
+      timersRef.current.delete(timer);
       setToasts((prev) => prev.filter((t) => t.id !== id));
     }, 5000);
+    timersRef.current.add(timer);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      timersRef.current.forEach((timer) => clearTimeout(timer));
+      timersRef.current.clear();
+    };
   }, []);
 
   const removeToast = useCallback((id: string) => {
