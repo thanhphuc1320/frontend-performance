@@ -164,5 +164,5 @@ jobs:
             sleep 2
           done
           curl --fail --silent --output "$web_response_file" http://127.0.0.1:3000/
-          grep -qi "Foundation" "$web_response_file"
+          grep -qi "Commerce Control Center" "$web_response_file"
           pnpm test:e2e
