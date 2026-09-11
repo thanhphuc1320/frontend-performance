@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useRouter } from 'next/navigation';
 import { CheckCircle2, AlertCircle, Loader2, Clock } from 'lucide-react';
 import { Card, CardContent } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
@@ -11,6 +12,7 @@ interface VerificationStateProps {
 }
 
 export function VerificationState({ status, error }: VerificationStateProps) {
+  const router = useRouter();
   const states = {
     loading: {
       icon: Loader2,
@@ -48,7 +50,7 @@ export function VerificationState({ status, error }: VerificationStateProps) {
         <h2 className="text-xl font-semibold text-text-primary mb-2">{state.title}</h2>
         <p className="text-text-secondary mb-6">{state.description}</p>
         {status === 'success' && (
-          <Button onClick={() => window.location.href = '/'}>Go to Dashboard</Button>
+          <Button onClick={() => router.push('/')}>Go to Dashboard</Button>
         )}
         {(status === 'error' || status === 'expired') && (
           <Button variant="secondary" onClick={() => window.location.reload()}>

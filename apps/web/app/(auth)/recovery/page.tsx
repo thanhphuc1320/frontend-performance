@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { RecoveryForm } from '../../../features/auth/components/recovery-form';
 import { useRequestPasswordReset } from '../../../features/auth/queries';
 import { ApiError } from '../../../features/auth/api';
@@ -24,7 +25,7 @@ export default function RecoveryPage() {
       />
       <p className="mt-4 text-center text-sm text-text-muted">
         Remember your password?{' '}
-        <a href="/login" className="text-primary hover:underline">Sign in</a>
+        <Link href="/login" className="text-primary hover:underline">Sign in</Link>
       </p>
     </div>
   );

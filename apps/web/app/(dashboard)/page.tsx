@@ -11,8 +11,10 @@ import { Badge } from '../../components/ui/badge';
 import { Skeleton } from '../../components/ui/skeleton';
 import { ApiError } from '../../features/auth/api';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function DashboardPage() {
+  const router = useRouter();
   const { data: session, isLoading: sessionLoading } = useSession();
   const { data: stores, isLoading: storesLoading } = useStores();
   const { data: capabilities } = useCapabilities();
@@ -33,7 +35,7 @@ export default function DashboardPage() {
     return (
       <div className="flex flex-col items-center justify-center py-12">
         <p className="text-text-secondary mb-4">Please sign in to continue</p>
-        <Button onClick={() => window.location.href = '/login'}>Sign in</Button>
+        <Button onClick={() => router.push('/login')}>Sign in</Button>
       </div>
     );
   }

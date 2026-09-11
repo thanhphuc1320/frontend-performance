@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { RegisterForm } from '../../../features/auth/components/register-form';
 import { useRegister } from '../../../features/auth/queries';
 import { ApiError } from '../../../features/auth/api';
@@ -24,7 +25,7 @@ export default function RegisterPage() {
       />
       <p className="mt-4 text-center text-sm text-text-muted">
         Already have an account?{' '}
-        <a href="/login" className="text-primary hover:underline">Sign in</a>
+        <Link href="/login" className="text-primary hover:underline">Sign in</Link>
       </p>
     </div>
   );
