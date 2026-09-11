@@ -66,7 +66,7 @@ export function Sidebar() {
         </SidebarSection>
 
         <SidebarSection title="Quản trị">
-          <SidebarNavItem href="/users" icon={UserCog} label="Ngưởi dùng" />
+          <SidebarNavItem href="/users" icon={UserCog} label="Ngườii dùng" />
           <SidebarNavItem href="/audit" icon={ClipboardList} label="Nhật ký hoạt động" />
         </SidebarSection>
       </nav>
