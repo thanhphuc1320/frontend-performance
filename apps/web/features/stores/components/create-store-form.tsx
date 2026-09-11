@@ -1,6 +1,12 @@
 'use client';
 
 import React, { useState } from 'react';
+import { Button } from '../../../components/ui/button';
+import { Input } from '../../../components/ui/input';
+import { Label } from '../../../components/ui/label';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../components/ui/card';
+import { Alert } from '../../../components/ui/alert';
+import { Store } from 'lucide-react';
 
 interface CreateStoreFormProps {
   onSubmit: (data: { name: string }) => void | Promise<void>;
@@ -23,32 +29,40 @@ export function CreateStoreForm({ onSubmit, loading, error, success }: CreateSto
     void onSubmit({ name });
   }
 
-  if (success) {
-    return (
-      <div>
-        <p>Store created successfully.</p>
-      </div>
-    );
-  }
-
   return (
-    <form onSubmit={handleSubmit}>
-      <div>
-        <label htmlFor="store-name">Store name</label>
-        <input
-          id="store-name"
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          disabled={loading}
-        />
-      </div>
-      {(error || validationError) && (
-        <div role="alert">{error ?? validationError}</div>
-      )}
-      <button type="submit" disabled={loading}>
-        {loading ? 'Creating...' : 'Create store'}
-      </button>
-    </form>
+    <Card className="w-full max-w-md">
+      <CardHeader className="space-y-1">
+        <div className="flex items-center gap-2">
+          <Store className="h-5 w-5 text-primary" />
+          <CardTitle>Create your first store</CardTitle>
+        </div>
+        <CardDescription>Set up your store to start managing products and orders</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {success ? (
+          <Alert variant="success">Store created successfully!</Alert>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="store-name">Store name</Label>
+              <Input
+                id="store-name"
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                disabled={loading}
+                placeholder="My Store"
+              />
+            </div>
+            {(error || validationError) && (
+              <Alert variant="danger">{error ?? validationError}</Alert>
+            )}
+            <Button type="submit" loading={loading} className="w-full">
+              {loading ? 'Creating...' : 'Create store'}
+            </Button>
+          </form>
+        )}
+      </CardContent>
+    </Card>
   );
 }
