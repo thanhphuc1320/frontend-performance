@@ -48,10 +48,10 @@ describe('IdentityService', () => {
     const dependencies = makeDependencies();
     const service = new IdentityService(dependencies.repository, dependencies.hasher, dependencies.email, dependencies.checker);
 
-    const result = await service.register({ email: ' Person@Example.COM ', password: 'a secure password' });
+    const result = await service.register({ email: ' Person@Example.COM ', password: 'SecurePass1!' });
 
     expect(result).toEqual({ accepted: true });
-    expect(dependencies.repository.createUser).toHaveBeenCalledWith(expect.objectContaining({ email: 'person@example.com', passwordHash: 'hashed:a secure password' }), expect.anything());
+    expect(dependencies.repository.createUser).toHaveBeenCalledWith(expect.objectContaining({ email: 'person@example.com', passwordHash: 'hashed:SecurePass1!' }), expect.anything());
     expect(dependencies.email.sendVerification).toHaveBeenCalledWith(expect.objectContaining({ recipient: 'person@example.com' }));
     expect([...dependencies.users.values()][0]?.status).toBe(UserStatus.UNVERIFIED);
     expect(JSON.stringify(result)).not.toContain('password');
@@ -60,10 +60,10 @@ describe('IdentityService', () => {
   it('returns the same public registration response for duplicate emails', async () => {
     const dependencies = makeDependencies();
     const service = new IdentityService(dependencies.repository, dependencies.hasher, dependencies.email, dependencies.checker);
-    await service.register({ email: 'person@example.com', password: 'a secure password' });
+    await service.register({ email: 'person@example.com', password: 'SecurePass1!' });
     dependencies.repository.createUser.mockRejectedValueOnce(Object.assign(new Error('conflict'), { code: 'CONFLICT' }));
 
-    await expect(service.register({ email: 'PERSON@example.com', password: 'a secure password' })).resolves.toEqual({ accepted: true });
+    await expect(service.register({ email: 'PERSON@example.com', password: 'SecurePass1!' })).resolves.toEqual({ accepted: true });
     expect(dependencies.email.sendVerification).toHaveBeenCalledTimes(1);
   });
 
@@ -78,7 +78,7 @@ describe('IdentityService', () => {
   it('verifies a token once and activates the user', async () => {
     const dependencies = makeDependencies();
     const service = new IdentityService(dependencies.repository, dependencies.hasher, dependencies.email, dependencies.checker);
-    await service.register({ email: 'person@example.com', password: 'a secure password' });
+    await service.register({ email: 'person@example.com', password: 'SecurePass1!' });
     const calls = dependencies.email.sendVerification.mock.calls as unknown[][];
     const actionUrl = (calls[0]?.[0] as { actionUrl: string }).actionUrl;
     const rawToken = new URL(`http://localhost${actionUrl}`).searchParams.get('token')!;

@@ -2,6 +2,10 @@ import { createHash } from 'node:crypto';
 
 export type PasswordPolicyReason =
   | 'minimum-length'
+  | 'missing-number'
+  | 'missing-lowercase'
+  | 'missing-uppercase'
+  | 'missing-special-char'
   | 'common-password'
   | 'compromised-password'
   | 'compromised-password-check-unavailable';
@@ -36,13 +40,22 @@ const COMMON_PASSWORDS = new Set([
   'dragon12345678',
   'abc123abc123',
   'trustnoone123',
+  // Common passwords meeting complexity requirements (for test coverage)
+  'password1234!',
+  'welcome123456!',
+  'letmein1!',
+  'football1!',
 ]);
 
 export async function validatePassword(
   value: string,
   checker: CompromisedPasswordChecker,
 ): Promise<PasswordPolicyResult> {
-  if (value.length < 12) return { valid: false, reason: 'minimum-length' };
+  if (value.length < 8) return { valid: false, reason: 'minimum-length' };
+  if (!/[0-9]/.test(value)) return { valid: false, reason: 'missing-number' };
+  if (!/[a-z]/.test(value)) return { valid: false, reason: 'missing-lowercase' };
+  if (!/[A-Z]/.test(value)) return { valid: false, reason: 'missing-uppercase' };
+  if (!/[^a-zA-Z0-9]/.test(value)) return { valid: false, reason: 'missing-special-char' };
   if (COMMON_PASSWORDS.has(value.toLowerCase())) return { valid: false, reason: 'common-password' };
 
   try {

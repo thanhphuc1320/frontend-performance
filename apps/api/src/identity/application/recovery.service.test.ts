@@ -76,10 +76,10 @@ describe('RecoveryService', () => {
     const actionUrl = (calls[0]?.[0] as { actionUrl: string }).actionUrl;
     const rawToken = new URL(`http://localhost${actionUrl}`).searchParams.get('token')!;
 
-    const result = await service.resetPassword(rawToken, 'new secure password');
+    const result = await service.resetPassword(rawToken, 'NewSecure1!');
 
     expect(result).toEqual({ accepted: true });
-    expect(deps.hasher.hash).toHaveBeenCalledWith('new secure password');
+    expect(deps.hasher.hash).toHaveBeenCalledWith('NewSecure1!');
     expect(deps.sessionRevoker.revokeAllForUser).toHaveBeenCalledWith('user-1');
     expect(deps.repository.consumeToken).toHaveBeenCalled();
   });
@@ -95,7 +95,7 @@ describe('RecoveryService', () => {
     const actionUrl = (calls[0]?.[0] as { actionUrl: string }).actionUrl;
     const rawToken = new URL(`http://localhost${actionUrl}`).searchParams.get('token')!;
 
-    await expect(service.resetPassword(rawToken, 'compromised-password')).rejects.toThrow('Invalid password');
+    await expect(service.resetPassword(rawToken, 'compromised-p@ss1')).rejects.toThrow('Invalid password');
     expect(deps.hasher.hash).not.toHaveBeenCalled();
   });
 
@@ -103,9 +103,9 @@ describe('RecoveryService', () => {
     const deps = makeDependencies();
     const service = new RecoveryService(deps.repository, deps.hasher, deps.email, deps.sessionRevoker as never, deps.compromisedChecker as never, deps.config as never);
 
-    await expect(service.resetPassword('invalid', 'new password')).resolves.toEqual({ accepted: false });
+    await expect(service.resetPassword('invalid', 'NewPass1!')).resolves.toEqual({ accepted: false });
     deps.repository.findToken.mockResolvedValueOnce(null);
-    await expect(service.resetPassword('expired', 'new password')).resolves.toEqual({ accepted: false });
+    await expect(service.resetPassword('expired', 'NewPass1!')).resolves.toEqual({ accepted: false });
   });
 
   it('requests email change with generic response and sends hashed token email', async () => {

@@ -56,7 +56,7 @@ export function RegisterForm({ onSubmit, loading, error, success }: RegisterForm
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={loading}
               />
-              <p className="text-xs text-text-muted">Password must be at least 12 characters</p>
+              <p className="text-xs text-text-muted">Password must be at least 8 characters, including a number, uppercase, lowercase, and special character</p>
             </div>
             {error && <Alert variant="danger">{error}</Alert>}
             <Button type="submit" loading={loading} className="w-full">
