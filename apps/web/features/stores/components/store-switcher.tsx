@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Store, ChevronRight } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
+import { Card, CardContent } from '../../../components/ui/card';
 import { Skeleton } from '../../../components/ui/skeleton';
 import type { Store as StoreType } from '../api';
 

@@ -6,7 +6,6 @@ import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../components/ui/card';
 import { Alert } from '../../../components/ui/alert';
-import { Badge } from '../../../components/ui/badge';
 
 interface RegisterFormProps {
   onSubmit: (data: { email: string; password: string }) => void | Promise<void>;

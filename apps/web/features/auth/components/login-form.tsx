@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
-import { FormError } from '../../../components/ui/form-error';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../components/ui/card';
 import { Alert } from '../../../components/ui/alert';
 
