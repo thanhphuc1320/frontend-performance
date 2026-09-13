@@ -1,1 +1,12 @@
-DROP TABLE IF EXISTS product_inventory, product_taggings, product_tags, product_images, product_categories, categories, product_variant_options, product_variants, products CASCADE;
+DROP TRIGGER IF EXISTS categories_depth_limit ON categories;
+DROP FUNCTION IF EXISTS check_category_depth();
+
+DROP TABLE IF EXISTS product_inventory;
+DROP TABLE IF EXISTS product_taggings;
+DROP TABLE IF EXISTS product_tags;
+DROP TABLE IF EXISTS product_images;
+DROP TABLE IF EXISTS product_categories;
+DROP TABLE IF EXISTS categories;
+DROP TABLE IF EXISTS product_variant_options;
+DROP TABLE IF EXISTS product_variants;
+DROP TABLE IF EXISTS products;

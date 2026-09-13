@@ -1,3 +1,7 @@
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+-- NOTE: updated_at columns in this migration are managed by the application layer.
+
 CREATE TABLE products (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   store_id uuid NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
@@ -87,3 +91,60 @@ CREATE TABLE product_inventory (
   UNIQUE(variant_id)
 );
 CREATE INDEX product_inventory_variant_idx ON product_inventory (variant_id);
+
+CREATE OR REPLACE FUNCTION check_category_depth() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+  new_depth integer;
+  subtree_height integer;
+BEGIN
+  -- Skip check if parent hasn't changed on update
+  IF TG_OP = 'UPDATE' AND OLD.parent_id IS NOT DISTINCT FROM NEW.parent_id THEN
+    RETURN NEW;
+  END IF;
+
+  IF NEW.parent_id IS NULL THEN
+    new_depth := 1;
+  ELSE
+    WITH RECURSIVE ancestors AS (
+      SELECT parent_id, 1 AS level
+      FROM categories
+      WHERE id = NEW.parent_id
+      UNION ALL
+      SELECT c.parent_id, a.level + 1
+      FROM categories c
+      JOIN ancestors a ON c.id = a.parent_id
+    )
+    SELECT COALESCE(MAX(level), 0) + 1 INTO new_depth
+    FROM ancestors;
+  END IF;
+
+  -- Check if this row itself exceeds depth 3
+  IF new_depth > 3 THEN
+    RAISE EXCEPTION 'Category depth limit exceeded. Maximum allowed depth is 3 levels.';
+  END IF;
+
+  -- For updates, check if any descendants would exceed depth 3
+  IF TG_OP = 'UPDATE' THEN
+    WITH RECURSIVE descendants AS (
+      SELECT id, 1 AS level
+      FROM categories
+      WHERE parent_id = NEW.id
+      UNION ALL
+      SELECT c.id, d.level + 1
+      FROM categories c
+      JOIN descendants d ON c.parent_id = d.id
+    )
+    SELECT COALESCE(MAX(level), 0) INTO subtree_height
+    FROM descendants;
+
+    IF new_depth + subtree_height > 3 THEN
+      RAISE EXCEPTION 'Category depth limit exceeded. Moving this category would cause descendants to exceed the maximum depth of 3 levels.';
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER categories_depth_limit
+  BEFORE INSERT OR UPDATE ON categories FOR EACH ROW EXECUTE FUNCTION check_category_depth();
