@@ -732,3 +732,122 @@ Automated Test
 ```
 
 Nếu không trace được, behavior đó chưa đủ specification để đưa vào implementation.
+
+---
+
+# PHẦN C — AUTH / STORE / RBAC IMPLEMENTATION REFERENCE
+
+## 26. API Endpoint Groups
+
+### Auth (`/api/v1/auth`)
+
+| Method | Path | Auth | CSRF | Description |
+|---|---|---|---|---|
+| POST | `/register` | No | No | Register with email and password |
+| POST | `/verify-email` | No | No | Verify email with token |
+| POST | `/login` | No | No | Authenticate and create session |
+| POST | `/logout` | Yes | Yes | Revoke current session and clear cookies |
+| GET | `/session` | Cookie only | No | Return current session userId |
+| POST | `/password-reset-request` | No | No | Request password reset (generic response) |
+| POST | `/password-reset` | No | No | Reset password with token |
+| POST | `/email-change-request` | Yes | Yes | Request email change |
+| POST | `/email-change` | No | No | Verify email change with token |
+
+### Stores (`/api/v1/stores`)
+
+| Method | Path | Auth | Permission | Description |
+|---|---|---|---|---|
+| POST | `/` | Yes | None (verified user) | Create first Store with idempotency key |
+| GET | `/` | Yes | None | List user's ACTIVE Stores |
+| POST | `/:storeId/select` | Yes | `store.read` implicit | Select active Store (sets cookie) |
+| PATCH | `/:storeId` | Yes | `store.settings` | Update Store settings |
+| POST | `/:storeId/deactivate` | Yes | `store.deactivate` | Deactivate Store |
+| POST | `/:storeId/reactivate` | Yes | `store.deactivate` | Reactivate Store |
+
+### Membership (`/api/v1/stores/:storeId`)
+
+| Method | Path | Auth | Permission | Description |
+|---|---|---|---|---|
+| GET | `/members` | Yes | `members.read` | List Store memberships |
+| POST | `/members/leave` | Yes | None (self) | Leave Store |
+| POST | `/members/:userId/suspend` | Yes | `members.manage` | Suspend member |
+| POST | `/members/:userId/remove` | Yes | `members.manage` | Remove member |
+| PATCH | `/members/:userId/role` | Yes | `members.manage` | Change member role |
+| POST | `/invitations` | Yes | `members.invite` | Invite user by email |
+| POST | `/invitations/:id/resend` | Yes | `members.invite` | Resend invitation |
+| POST | `/invitations/:id/revoke` | Yes | `members.manage` | Revoke invitation |
+| POST | `/invitations/accept` | Yes | None | Accept invitation with token |
+
+### Capabilities (`/api/v1`)
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/capabilities` | Yes | Return permissions for selected Store |
+
+## 27. Status and Error Semantics
+
+### HTTP status usage
+
+| Status | Meaning | When used |
+|---|---|---|
+| 200 | Success | GET, POST with body, PATCH |
+| 201 | Created | Store creation, invitation creation |
+| 400 | Validation error | Invalid input, malformed token, invalid transition |
+| 401 | Unauthenticated | Missing/invalid session, disabled/locked user |
+| 403 | Forbidden / Authorization | No membership, suspended, missing permission, CSRF failure, cross-Store access |
+| 409 | Conflict | Idempotency conflict, final-Owner protection, duplicate constraint |
+| 429 | Rate limited | Login lockout after 5 failed attempts |
+| 500 | Internal error | Unexpected server failure |
+
+### Error envelope
+
+```json
+{
+  "error": {
+    "code": "STORE_ACCESS_DENIED",
+    "message": "Store access denied",
+    "requestId": "uuid-or-generated-id"
+  }
+}
+```
+
+Security rule: cross-Store access returns generic `403 STORE_ACCESS_DENIED` with no Store metadata leakage. Invalid credentials return generic `401 UNAUTHENTICATED` without revealing whether the email exists.
+
+## 28. Fixed-Role Capabilities
+
+Roles are system-managed (`is_system = true`) and seeded in migration `0002_auth_store_rbac`.
+
+| Role | Key permissions | Exclusions |
+|---|---|---|
+| `OWNER` | All 24 permissions | None |
+| `ADMIN` | Dashboard, orders, customers, products, inventory, channels, members, audit, store settings | Financial dashboard, livestream control, role management, store deactivation |
+| `STAFF` | Dashboard read, orders read/update, products read, customers read | Inventory, channels, members, settings |
+| `WAREHOUSE` | Orders read/update, inventory read/adjust | Dashboard, products, customers, channels |
+| `CUSTOMER_SUPPORT` | Orders read/update, customers read | Dashboard, products, inventory, channels, members |
+| `ANALYST` | Dashboard read, financial dashboard, analytics read | All mutations |
+
+Permission checks are evaluated server-side on every protected request. The frontend uses the `/capabilities` endpoint to hide/disable unavailable actions, but never replaces backend authorization.
+
+## 29. Store Isolation
+
+Every protected endpoint that references a Store enforces the boundary in this order:
+
+1. **Authenticate** — valid, non-revoked session.
+2. **Lookup membership** — active membership for the requested `storeId`.
+3. **Load permissions** — role-based permissions for that Store only.
+4. **Authorize action** — `PermissionGuard` checks the required permission against the loaded permissions and the resource Store scope.
+
+`storeId` is extracted from (in priority order): URL params, query string, `x-store-id` header, `commerce_selected_store` cookie.
+
+A user with valid authentication but no active membership in Store B receives `403 STORE_ACCESS_DENIED` when accessing Store B resources. No Store B metadata is returned.
+
+## 30. Final-Owner Protection
+
+A Store must always have at least one active Owner. This is enforced at two levels:
+
+1. **Database trigger** `prevent_final_owner_change()` on `store_memberships` blocks `UPDATE` and `DELETE` that would remove the final active Owner.
+2. **Application layer** `MembershipService` acquires a per-Store advisory lock (`pg_advisory_xact_lock`) before counting active Owners and rejects the operation with `409 FINAL_OWNER_PROTECTED` if only one Owner remains.
+
+Affected operations: suspend, remove, and role-change away from `OWNER`.
+
+Concurrency test `serializes concurrent final-Owner role changes so only one succeeds` verifies that simultaneous attempts serialize so exactly one succeeds.

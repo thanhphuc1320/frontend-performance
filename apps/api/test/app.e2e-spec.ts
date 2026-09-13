@@ -1,6 +1,7 @@
 import { Test } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
+import cookieParser from 'cookie-parser';
 import { AppModule } from '../src/app.module';
 
 describe('GET /health', () => {
@@ -12,6 +13,7 @@ describe('GET /health', () => {
     }).compile();
 
     app = moduleRef.createNestApplication();
+    app.use(cookieParser());
     await app.init();
   });
 

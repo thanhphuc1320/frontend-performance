@@ -147,7 +147,8 @@ jobs:
 
           cp .env.example .env
           docker compose -f infra/docker-compose.yml up -d --wait
-          pnpm --filter @commerce/api dev > /tmp/commerce-api.log 2>&1 &
+          pnpm --filter @commerce/api build
+          node apps/api/dist/main.js > /tmp/commerce-api.log 2>&1 &
           api_pid=$!
           pnpm --filter @commerce/web dev > /tmp/commerce-web.log 2>&1 &
           web_pid=$!
@@ -163,5 +164,5 @@ jobs:
             sleep 2
           done
           curl --fail --silent --output "$web_response_file" http://127.0.0.1:3000/
-          grep -qi "Foundation" "$web_response_file"
+          grep -qi "Commerce Control Center" "$web_response_file"
           pnpm test:e2e

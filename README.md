@@ -38,6 +38,31 @@ preserved, and the loader never prints environment values. The API validates
 its environment before NestJS starts; keep local credentials in `.env`, which
 is ignored by Git.
 
+Authentication configuration is documented in `docs/adr/0001-auth-security-and-persistence.md`. The example file uses in-memory email capture for local development and tests, so no messages are sent; tests inspect captured typed payloads through the delivery port. Do not add `SMTP_URL` or `CSRF_SECRET` to `.env.example`. Production must provide SMTP delivery, a valid `EMAIL_FROM`, and deployment-managed `SMTP_URL` and `CSRF_SECRET`; invalid production settings fail before NestJS startup.
+
+### Auth / Store / RBAC Local Setup
+
+The Auth subsystem uses the same `.env` file and PostgreSQL services. After copying `.env.example` to `.env`:
+
+1. Start PostgreSQL: `docker compose -f infra/docker-compose.yml up -d postgres`
+2. Apply migrations: `pnpm infra:migrate`
+
+Migrations are forward-only in deployment; each migration has a paired safe down migration for local/test rollback (`pnpm infra:rollback`). See `infra/postgres/README.md` for migration details.
+
+**Email adapter test mode:** `EMAIL_DELIVERY_MODE=memory` in `.env` captures typed email payloads in-process. No messages are sent. Tests assert recipient, template data and action URL through the memory adapter's captured messages. The frontend can read the test action URL from the same adapter in E2E tests.
+
+**Session cookie behavior:** The API sets two cookies on login:
+- `commerce_session` — opaque session identifier, `HttpOnly`, `SameSite=Lax`, `Path=/`, `Secure` in production.
+- `csrf_token` — non-`HttpOnly` double-submit token, required in the `X-CSRF-Token` header for all mutation methods (`POST`, `PUT`, `PATCH`, `DELETE`).
+
+Safe methods (`GET`, `HEAD`) do not require the CSRF header. Session idle timeout is 24 hours, absolute lifetime is 30 days. The session is extended on every authenticated request up to the absolute limit.
+
+**Safe local recovery testing:** Password-reset and email-change tokens expire after 1 hour. To test recovery flows locally, either:
+- Use the captured action URL from the memory adapter in tests, or
+- Temporarily reduce `AUTH_PASSWORD_RESET_TOKEN_TTL_SECONDS` / `AUTH_EMAIL_CHANGE_TOKEN_TTL_SECONDS` in local `.env` (never commit this change).
+
+All tokens are single-use SHA-256 hashes; raw tokens are never persisted. Never log or screenshot URLs containing `token=` query parameters.
+
 ### Local Infrastructure
 
 Docker is required for the local PostgreSQL and Redis services. Copy `.env.example` to `.env`, then start both services with `docker compose -f infra/docker-compose.yml up -d`; they bind authenticated services to loopback ports `55432` and `56379` and use named local volumes. Apply the empty migration baseline with `pnpm infra:migrate`, roll it back with `pnpm infra:rollback`, and verify both services with `pnpm infra:verify`. Stop services with `docker compose -f infra/docker-compose.yml down`; add `-v` to reset local data. These containers and credentials are for local development only and are not a production deployment design.
@@ -121,10 +146,10 @@ shell so the background processes remain owned by the controlled lifecycle.
 The exception-safe `cleanup` trap kills each launcher and all descendants, then
 the Compose cleanup command removes the required services even after a failure.
 
-### Phase 0 Review
+### Auth / Store / RBAC Completion Review
 
-Phase 0 foundation verification was completed on Node.js `24.7.0` and pnpm
-`10.14.0`. The clean-install quality gate passed:
+The Auth, Store Membership and fixed-role RBAC subsystem was implemented across
+Tasks 1-9 and verified in Task 10. The clean-install quality gate passed:
 
 ```text
 pnpm install --frozen-lockfile
@@ -135,22 +160,34 @@ pnpm test:e2e
 pnpm build
 ```
 
-The local infrastructure lifecycle was also repeated twice using Docker
-Compose: start with `up -d --wait`, run `pnpm infra:migrate`,
-`pnpm infra:verify`, and `pnpm infra:rollback`, then stop with `down`. Both
-runs reached healthy PostgreSQL and Redis services, applied the empty baseline
-idempotently, passed verification, rolled back cleanly, and left no containers
-running. Docker is a local prerequisite; `.env.example` must be copied to
-`.env` for local development.
+The implemented scope includes:
 
-The Phase 0 scope remains protected: there are no business tables, business
-endpoints, dashboard widgets, authentication flow, external credentials, or
-domain mutation logic. Generated TypeScript build metadata (`*.tsbuildinfo`)
-and build output remain ignored.
+- **Identity:** email normalization, Argon2id password hashing, Have I Been Pwned
+  compromised-password checking, login lockout after 5 failed attempts.
+- **Registration and verification:** user creation with `UNVERIFIED` status,
+  single-use SHA-256 verification tokens (24h expiry), email verification before
+  Store creation.
+- **Sessions:** opaque PostgreSQL session records with SHA-256 hashed tokens,
+  24h idle / 30d absolute expiry, CSRF double-submit protection, secure cookie
+  settings.
+- **Recovery:** password-reset and email-change tokens (1h expiry), session
+  revocation on completion.
+- **Store onboarding:** first-Store creation with idempotency key, transactional
+  Store + Owner membership creation.
+- **Membership:** fixed roles (`OWNER`, `ADMIN`, `STAFF`, `WAREHOUSE`,
+  `CUSTOMER_SUPPORT`, `ANALYST`), invitation lifecycle (7-day tokens), accept/
+  suspend/remove/leave/role-change flows.
+- **Authorization:** Store-scoped permission checks, `AuthGuard` + `PermissionGuard`,
+  capabilities endpoint for frontend permission awareness.
+- **Store isolation:** backend-enforced Store boundary on every request; cross-Store
+  access returns generic `403` with no metadata leakage.
+- **Final-Owner protection:** database trigger + application-level advisory-lock
+  pattern prevents the final Owner from being removed, suspended or downgraded.
+- **Audit:** `audit_logs` table with actor, action, resource, before/after data;
+  automatic redaction of password, token, hash, secret and cookie fields.
 
-The next plan boundary is **Authentication and Store Membership**, including
-fixed-role RBAC. Product, inventory, order, payment, customer, channel,
-livestream, analytics, and dashboard work remains deferred to later plans.
+Excluded scope (deferred to later plans): Products, Orders, Inventory, Channels,
+Payments, Customers, Livestream, Analytics, Dashboard and Notifications.
 
 Task 1 workspace discovery verification:
 
