@@ -1,4 +1,4 @@
-export type RepositoryErrorCode = 'NOT_FOUND' | 'CONFLICT';
+export type RepositoryErrorCode = 'NOT_FOUND' | 'CONFLICT' | 'MAX_DEPTH_EXCEEDED' | 'TAG_IN_USE';
 
 export class RepositoryError extends Error {
   constructor(public readonly code: RepositoryErrorCode, message: string) {

@@ -157,7 +157,7 @@ export class ProductRepository {
           [input.storeId, input.name, input.slug, input.description ?? null, input.basePrice, input.status ?? 'DRAFT', input.createdBy],
         );
       } catch (error) {
-        return mapConflict(error, 'Product slug already exists');
+        throw mapConflict(error, 'Product slug already exists');
       }
       const product = this.mapProduct(productResult.rows[0]!);
 
@@ -170,7 +170,7 @@ export class ProductRepository {
             [product.id, variant.sku, variant.name ?? null, variant.priceDelta ?? 0, variant.status ?? 'ACTIVE'],
           );
         } catch (error) {
-          return mapConflict(error, 'SKU already exists');
+          throw mapConflict(error, 'SKU already exists');
         }
         const v = variantResult.rows[0]!;
 
@@ -267,7 +267,13 @@ export class ProductRepository {
       priceDelta: parseFloat(row.price_delta),
       status: row.status,
       options: optionsMap.get(row.id) ?? [],
-      inventory: inventoryMap.get(row.id) ?? (() => { throw new RepositoryError('NOT_FOUND', `Inventory not found for variant ${row.id}`); })(),
+      inventory: inventoryMap.get(row.id) ?? {
+        id: '',
+        variantId: row.id,
+        quantity: 0,
+        reservedQuantity: 0,
+        updatedAt: new Date(),
+      },
     }));
 
     return {
@@ -321,7 +327,7 @@ export class ProductRepository {
     const total = parseInt(countResult.rows[0]!.count, 10);
 
     const page = Math.max(1, filters.page);
-    const limit = Math.max(1, Math.min(100, filters.limit));
+    const limit = Math.max(1, Math.min(100, filters.limit || 20));
     const offset = (page - 1) * limit;
 
     const productResult = await this.db.query<ProductRow>(
@@ -406,7 +412,7 @@ export class ProductRepository {
           [storeId, `${original.name} (Copy)`, newSlug, original.description, original.basePrice, 'DRAFT', createdBy],
         );
       } catch (error) {
-        return mapConflict(error, 'Product slug already exists');
+        throw mapConflict(error, 'Product slug already exists');
       }
       const newProduct = this.mapProduct(productResult.rows[0]!);
 
@@ -425,7 +431,7 @@ export class ProductRepository {
             [newProduct.id, newSku, variantRow.name, parseFloat(variantRow.price_delta), variantRow.status],
           );
         } catch (error) {
-          return mapConflict(error, 'SKU already exists');
+          throw mapConflict(error, 'SKU already exists');
         }
         const newVariant = variantResult.rows[0]!;
 
@@ -481,6 +487,12 @@ export class ProductRepository {
   }
 
   async createCategory(storeId: string, name: string, slug: string, parentId?: string | null, sortOrder?: number): Promise<Category> {
+    if (parentId) {
+      const depth = await this.getCategoryDepth(parentId);
+      if (depth + 1 > 3) {
+        throw new RepositoryError('MAX_DEPTH_EXCEEDED', 'Category depth would exceed maximum of 3 levels');
+      }
+    }
     try {
       const result = await this.db.query<CategoryRow>(
         `INSERT INTO categories (store_id, name, slug, parent_id, sort_order) VALUES ($1, $2, $3, $4, $5) RETURNING *`,
@@ -488,7 +500,7 @@ export class ProductRepository {
       );
       return this.mapCategory(result.rows[0]!);
     } catch (error) {
-      return mapConflict(error, 'Category slug already exists');
+      throw mapConflict(error, 'Category slug already exists');
     }
   }
 
@@ -562,6 +574,14 @@ export class ProductRepository {
   }
 
   async deleteTag(tagId: string, storeId: string): Promise<void> {
+    const productsResult = await this.db.query(
+      `SELECT 1 FROM product_taggings WHERE tag_id = $1 LIMIT 1`,
+      [tagId],
+    );
+    if (productsResult.rowCount !== null && productsResult.rowCount > 0) {
+      throw new RepositoryError('TAG_IN_USE', 'Tag is linked to products');
+    }
+
     const result = await this.db.query(
       `DELETE FROM product_tags WHERE id = $1 AND store_id = $2`,
       [tagId, storeId],
