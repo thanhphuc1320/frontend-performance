@@ -97,6 +97,13 @@ export function createCategory(storeId: string, data: Partial<Category>): Promis
   });
 }
 
+export function updateCategory(storeId: string, categoryId: string, data: Partial<Category>): Promise<Category> {
+  return apiFetch(`/api/v1/stores/${storeId}/categories/${categoryId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+}
+
 export function deleteCategory(storeId: string, categoryId: string): Promise<void> {
   return apiFetch(`/api/v1/stores/${storeId}/categories/${categoryId}`, { method: 'DELETE' });
 }

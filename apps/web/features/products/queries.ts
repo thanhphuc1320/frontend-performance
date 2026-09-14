@@ -10,6 +10,7 @@ import {
   duplicateProduct,
   listCategories,
   createCategory,
+  updateCategory,
   deleteCategory,
   listTags,
   createTag,
@@ -95,6 +96,24 @@ export function useCreateCategory() {
   return useMutation({
     mutationFn: ({ storeId, data }: { storeId: string; data: Parameters<typeof createCategory>[1] }) =>
       createCategory(storeId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
+    },
+  });
+}
+
+export function useUpdateCategory() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      storeId,
+      categoryId,
+      data,
+    }: {
+      storeId: string;
+      categoryId: string;
+      data: Parameters<typeof updateCategory>[2];
+    }) => updateCategory(storeId, categoryId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
     },
