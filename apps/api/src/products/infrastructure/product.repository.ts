@@ -512,6 +512,35 @@ export class ProductRepository {
     return result.rows.map(this.mapCategory);
   }
 
+  async updateCategory(categoryId: string, storeId: string, updates: Partial<Pick<Category, 'name' | 'slug' | 'parentId' | 'sortOrder'>>): Promise<Category> {
+    const sets: string[] = [];
+    const values: unknown[] = [];
+    let idx = 1;
+
+    if (updates.name !== undefined) { sets.push(`name = $${idx++}`); values.push(updates.name); }
+    if (updates.slug !== undefined) { sets.push(`slug = $${idx++}`); values.push(updates.slug); }
+    if (updates.parentId !== undefined) { sets.push(`parent_id = $${idx++}`); values.push(updates.parentId); }
+    if (updates.sortOrder !== undefined) { sets.push(`sort_order = $${idx++}`); values.push(updates.sortOrder); }
+
+    if (sets.length === 0) {
+      const existing = await this.findCategoriesByStore(storeId);
+      const category = existing.find((c) => c.id === categoryId);
+      if (!category) throw new RepositoryError('NOT_FOUND', 'Category not found');
+      return category;
+    }
+
+    sets.push(`updated_at = now()`);
+    values.push(categoryId);
+    values.push(storeId);
+
+    const result = await this.db.query<CategoryRow>(
+      `UPDATE categories SET ${sets.join(', ')} WHERE id = $${idx} AND store_id = $${idx + 1} RETURNING *`,
+      values,
+    );
+    if (result.rowCount === 0) throw new RepositoryError('NOT_FOUND', 'Category not found');
+    return this.mapCategory(result.rows[0]!);
+  }
+
   async deleteCategory(categoryId: string, storeId: string): Promise<void> {
     const childrenResult = await this.db.query(
       `SELECT 1 FROM categories WHERE parent_id = $1 LIMIT 1`,

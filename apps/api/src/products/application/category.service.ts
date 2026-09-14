@@ -37,6 +37,26 @@ export class CategoryService {
     return this.buildTree(categories);
   }
 
+  async update(id: string, storeId: string, updates: Partial<Pick<Category, 'name' | 'slug' | 'parentId' | 'sortOrder'>>) {
+    if (updates.name !== undefined) validateCategoryName(updates.name);
+    if (updates.slug !== undefined) validateCategorySlug(updates.slug);
+
+    if (updates.parentId !== undefined && updates.parentId !== null) {
+      const categories = await this.repository.findCategoriesByStore(storeId);
+      const parent = categories.find((c) => c.id === updates.parentId);
+      if (!parent) {
+        throw new ApiError(400, 'VALIDATION_ERROR', 'Parent category not found');
+      }
+
+      const depth = this.computeDepth(categories, updates.parentId);
+      if (depth + 1 > 3) {
+        throw new ApiError(400, 'VALIDATION_ERROR', 'Category depth would exceed maximum of 3 levels');
+      }
+    }
+
+    return this.repository.updateCategory(id, storeId, updates);
+  }
+
   async delete(id: string, storeId: string) {
     return this.repository.deleteCategory(id, storeId);
   }
