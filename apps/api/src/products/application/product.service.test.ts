@@ -1,5 +1,4 @@
 import { ProductService } from './product.service';
-import { PRODUCT_REPOSITORY } from './product.tokens';
 import type { ProductRepository } from '../infrastructure/product.repository';
 import type { Product, ProductStatus } from '../domain/product';
 import type { ProductWithRelations, PaginatedProducts } from '../infrastructure/product.repository';

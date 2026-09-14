@@ -52,7 +52,7 @@ describe('CategoryService', () => {
   it('fails to delete when category has products', async () => {
     const { service, repository } = setup();
     const error = new Error('Category has products');
-    (error as any).code = 'CONFLICT';
+    (error as Error & { code: string }).code = 'CONFLICT';
     repository.deleteCategory.mockRejectedValueOnce(error);
 
     await expect(service.delete('cat-1', 'store-1')).rejects.toThrow('Category has products');
@@ -61,7 +61,7 @@ describe('CategoryService', () => {
   it('fails to delete when category has children', async () => {
     const { service, repository } = setup();
     const error = new Error('Category has subcategories');
-    (error as any).code = 'CONFLICT';
+    (error as Error & { code: string }).code = 'CONFLICT';
     repository.deleteCategory.mockRejectedValueOnce(error);
 
     await expect(service.delete('cat-1', 'store-1')).rejects.toThrow('Category has subcategories');

@@ -6,7 +6,6 @@ import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
 import { Card, CardContent } from '../../../components/ui/card';
 import { FormError } from '../../../components/ui/form-error';
-import { Badge } from '../../../components/ui/badge';
 import { VariantEditor } from './variant-editor';
 import { ImageGallery } from './image-gallery';
 import {

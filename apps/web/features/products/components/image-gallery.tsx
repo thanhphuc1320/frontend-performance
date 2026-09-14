@@ -21,18 +21,6 @@ export function ImageGallery({ images, onChange }: ImageGalleryProps) {
   const [url, setUrl] = useState('');
   const [altText, setAltText] = useState('');
 
-  function openAdd() {
-    setEditingImage(null);
-    setUrl('');
-    setAltText('');
-  }
-
-  function openEdit(image: ProductImage) {
-    setEditingImage(image);
-    setUrl(image.url);
-    setAltText(image.altText ?? '');
-  }
-
   function handleSave() {
     const trimmedUrl = url.trim();
     if (!trimmedUrl) return;
