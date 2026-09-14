@@ -1,5 +1,5 @@
-import { Pool } from 'pg';
 import { RepositoryError, mapConflict } from '../../persistence/repository-error';
+import { PostgresDatabase } from '../../infrastructure/database.provider';
 import type { Product, ProductStatus } from '../domain/product';
 import type { ProductVariant, ProductVariantStatus, VariantOption, Inventory } from '../domain/product-variant';
 import type { Category } from '../domain/category';
@@ -130,10 +130,10 @@ type ImageRow = {
 };
 
 export class ProductRepository {
-  constructor(private readonly db: Pool) {}
+  constructor(private readonly db: PostgresDatabase) {}
 
   private async transaction<T>(work: (executor: Database) => Promise<T>): Promise<T> {
-    const client = await this.db.connect();
+    const client = await this.db.acquire();
     await client.query('BEGIN');
     try {
       const result = await work(client);
