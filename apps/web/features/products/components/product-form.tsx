@@ -16,7 +16,7 @@ import {
   useTags,
   useCreateTag,
 } from '../queries';
-import type { ProductDetail, ProductVariant, ProductImage, Category, ProductTag } from '../../types';
+import type { ProductDetail, ProductVariant, ProductImage, Category, ProductTag } from '../types';
 import { X, Plus } from 'lucide-react';
 
 type Tab = 'general' | 'variants' | 'images' | 'categories' | 'tags';
@@ -67,8 +67,8 @@ export function ProductForm({ storeId, product, onSuccess, onCancel }: ProductFo
       setStatus(product.product.status);
       setVariants(product.variants);
       setImages(product.images);
-      setSelectedCategoryIds(product.categories.map((c) => c.id));
-      setSelectedTagIds(product.tags.map((t) => t.id));
+      setSelectedCategoryIds(product.categories.map((c: Category) => c.id));
+      setSelectedTagIds(product.tags.map((t: ProductTag) => t.id));
     }
   }, [product]);
 

@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
-import type { ProductImage } from '../../types';
+import type { ProductImage } from '../types';
 import { Plus, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
 
 interface ImageGalleryProps {

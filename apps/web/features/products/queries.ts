@@ -8,6 +8,7 @@ import {
   updateProduct,
   archiveProduct,
   duplicateProduct,
+  getCategory,
   listCategories,
   createCategory,
   updateCategory,
@@ -81,6 +82,13 @@ export function useDuplicateProduct() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
     },
+  });
+}
+
+export function useCategory(storeId: string, categoryId: string) {
+  return useQuery({
+    queryKey: ['category', storeId, categoryId],
+    queryFn: () => getCategory(storeId, categoryId),
   });
 }
 

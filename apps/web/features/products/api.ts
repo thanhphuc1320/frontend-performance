@@ -85,6 +85,10 @@ export function duplicateProduct(storeId: string, productId: string): Promise<Pr
   return apiFetch(`/api/v1/stores/${storeId}/products/${productId}/duplicate`, { method: 'POST' });
 }
 
+export function getCategory(storeId: string, categoryId: string): Promise<Category> {
+  return apiFetch(`/api/v1/stores/${storeId}/categories/${categoryId}`, { method: 'GET', skipCsrf: true });
+}
+
 export function listCategories(storeId: string, tree?: boolean): Promise<Category[]> {
   const query = tree !== undefined ? `?tree=${tree}` : '';
   return apiFetch(`/api/v1/stores/${storeId}/categories${query}`, { method: 'GET', skipCsrf: true });

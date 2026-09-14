@@ -14,7 +14,7 @@ import {
 } from '../../../components/ui/table';
 import { Modal } from '../../../components/ui/modal';
 import { Badge } from '../../../components/ui/badge';
-import type { ProductVariant, VariantOption } from '../../types';
+import type { ProductVariant, VariantOption } from '../types';
 import { Plus, Trash2, X } from 'lucide-react';
 
 interface VariantEditorProps {
@@ -67,7 +67,7 @@ export function VariantEditor({ variants, onChange }: VariantEditorProps) {
       name: variant.name ?? '',
       priceDelta: String(variant.priceDelta),
       quantity: String(variant.inventory?.quantity ?? 0),
-      options: variant.options.map((o) => ({ optionName: o.optionName, optionValue: o.optionValue })),
+      options: variant.options.map((o: VariantOption) => ({ optionName: o.optionName, optionValue: o.optionValue })),
     });
     setIsAdding(true);
   }
@@ -197,8 +197,8 @@ export function VariantEditor({ variants, onChange }: VariantEditorProps) {
                 </TableCell>
                 <TableCell>
                   <div className="flex flex-wrap gap-1">
-                    {variant.options.map((o) => (
-                      <Badge key={o.id} variant="secondary" size="sm">
+                    {variant.options.map((o: VariantOption) => (
+                      <Badge key={o.optionName + o.optionValue} variant="secondary" size="sm">
                         {o.optionName}: {o.optionValue}
                       </Badge>
                     ))}
