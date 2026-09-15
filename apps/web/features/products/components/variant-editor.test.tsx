@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import React from 'react';
 import { VariantEditor } from './variant-editor';
-import type { ProductVariant } from '../../types';
+import type { ProductVariant } from '../types';
 
 describe('VariantEditor', () => {
   it('renders empty state', () => {
@@ -48,12 +48,17 @@ describe('VariantEditor', () => {
       expect(onChange).toHaveBeenCalledTimes(1);
     });
 
-    const newVariants = onChange.mock.calls[0][0] as ProductVariant[];
+    const call = onChange.mock.calls[0];
+    if (!call) throw new Error('Expected call');
+    const newVariants = call[0] as ProductVariant[];
     expect(newVariants).toHaveLength(1);
-    expect(newVariants[0]!.sku).toBe('SKU-002');
-    expect(newVariants[0]!.name).toBe('Large Blue');
-    expect(newVariants[0]!.priceDelta).toBe(10);
-    expect(newVariants[0]!.inventory!.quantity).toBe(20);
+    const [newVariant] = newVariants;
+    if (!newVariant) throw new Error('Expected newVariant');
+    expect(newVariant.sku).toBe('SKU-002');
+    expect(newVariant.name).toBe('Large Blue');
+    expect(newVariant.priceDelta).toBe(10);
+    if (!newVariant.inventory) throw new Error('Expected inventory');
+    expect(newVariant.inventory.quantity).toBe(20);
   });
 
   it('edits a variant', async () => {
@@ -80,8 +85,12 @@ describe('VariantEditor', () => {
       expect(onChange).toHaveBeenCalledTimes(1);
     });
 
-    const updatedVariants = onChange.mock.calls[0][0] as ProductVariant[];
-    expect(updatedVariants[0]!.sku).toBe('SKU-001-UPDATED');
+    const call = onChange.mock.calls[0];
+    if (!call) throw new Error('Expected call');
+    const updatedVariants = call[0] as ProductVariant[];
+    const [updatedVariant] = updatedVariants;
+    if (!updatedVariant) throw new Error('Expected updatedVariant');
+    expect(updatedVariant.sku).toBe('SKU-001-UPDATED');
   });
 
   it('removes a variant', () => {
@@ -115,8 +124,10 @@ describe('VariantEditor', () => {
     fireEvent.click(screen.getByRole('button', { name: /add option/i }));
     const optionNameInputs = screen.getAllByPlaceholderText('Option name');
     const optionValueInputs = screen.getAllByPlaceholderText('Option value');
-    fireEvent.change(optionNameInputs[0]!, { target: { value: 'Size' } });
-    fireEvent.change(optionValueInputs[0]!, { target: { value: 'Large' } });
+    const optionNameInput = optionNameInputs[0] as HTMLElement;
+    const optionValueInput = optionValueInputs[0] as HTMLElement;
+    fireEvent.change(optionNameInput, { target: { value: 'Size' } });
+    fireEvent.change(optionValueInput, { target: { value: 'Large' } });
 
     fireEvent.click(screen.getByRole('button', { name: /^add$/i }));
 
@@ -124,10 +135,16 @@ describe('VariantEditor', () => {
       expect(onChange).toHaveBeenCalledTimes(1);
     });
 
-    const newVariants = onChange.mock.calls[0][0] as ProductVariant[];
-    expect(newVariants[0]!.options).toHaveLength(1);
-    expect(newVariants[0]!.options[0]!.optionName).toBe('Size');
-    expect(newVariants[0]!.options[0]!.optionValue).toBe('Large');
+    const call = onChange.mock.calls[0];
+    if (!call) throw new Error('Expected call');
+    const newVariants = call[0] as ProductVariant[];
+    const [newVariant] = newVariants;
+    if (!newVariant) throw new Error('Expected newVariant');
+    expect(newVariant.options).toHaveLength(1);
+    const [option] = newVariant.options;
+    if (!option) throw new Error('Expected option');
+    expect(option.optionName).toBe('Size');
+    expect(option.optionValue).toBe('Large');
   });
 
   it('disables add button when sku is empty', () => {

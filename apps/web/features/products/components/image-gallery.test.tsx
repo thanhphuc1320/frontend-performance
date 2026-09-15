@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import React from 'react';
 import { ImageGallery } from './image-gallery';
-import type { ProductImage } from '../../types';
+import type { ProductImage } from '../types';
 
 describe('ImageGallery', () => {
   it('renders empty state', () => {
@@ -48,10 +48,14 @@ describe('ImageGallery', () => {
       expect(onChange).toHaveBeenCalledTimes(1);
     });
 
-    const newImages = onChange.mock.calls[0][0] as ProductImage[];
+    const call = onChange.mock.calls[0];
+    if (!call) throw new Error('Expected call');
+    const newImages = call[0] as ProductImage[];
     expect(newImages).toHaveLength(1);
-    expect(newImages[0]!.url).toBe('https://example.com/new.jpg');
-    expect(newImages[0]!.altText).toBe('New image');
+    const [newImage] = newImages;
+    if (!newImage) throw new Error('Expected newImage to be defined');
+    expect(newImage.url).toBe('https://example.com/new.jpg');
+    expect(newImage.altText).toBe('New image');
   });
 
   it('removes an image', () => {
@@ -92,12 +96,17 @@ describe('ImageGallery', () => {
     render(React.createElement(ImageGallery, { images, onChange }));
 
     const moveDownButtons = screen.getAllByRole('button', { name: /move down/i });
-    fireEvent.click(moveDownButtons[0]!);
+    const moveDownButton = moveDownButtons[0] as HTMLElement;
+    fireEvent.click(moveDownButton);
 
     expect(onChange).toHaveBeenCalledTimes(1);
-    const reordered = onChange.mock.calls[0][0] as ProductImage[];
-    expect(reordered[0]!.id).toBe('img2');
-    expect(reordered[1]!.id).toBe('img1');
+    const call = onChange.mock.calls[0];
+    if (!call) throw new Error('Expected call');
+    const reordered = call[0] as ProductImage[];
+    const [first, second] = reordered;
+    if (!first || !second) throw new Error('Expected reordered images');
+    expect(first.id).toBe('img2');
+    expect(second.id).toBe('img1');
   });
 
   it('disables add image button when url is empty', () => {

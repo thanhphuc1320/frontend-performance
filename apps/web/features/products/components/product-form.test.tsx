@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ProductForm } from './product-form';
-import type { ProductDetail, Category, ProductTag } from '../../types';
+import type { ProductDetail, Category, ProductTag } from '../types';
 
 const mockCreateProduct = { mutate: vi.fn(), isPending: false, error: null };
 const mockUpdateProduct = { mutate: vi.fn(), isPending: false, error: null };
@@ -120,7 +120,8 @@ describe('ProductForm', () => {
       expect(mockCreateProduct.mutate).toHaveBeenCalledTimes(1);
     });
 
-    const callArgs = mockCreateProduct.mutate.mock.calls[0][0];
+    const callArgs = mockCreateProduct.mutate.mock.calls[0]?.[0];
+    expect(callArgs).toBeDefined();
     expect(callArgs.storeId).toBe('s1');
     expect(callArgs.data).toMatchObject({
       name: 'New Product',
@@ -159,7 +160,8 @@ describe('ProductForm', () => {
       expect(mockUpdateProduct.mutate).toHaveBeenCalledTimes(1);
     });
 
-    const callArgs = mockUpdateProduct.mutate.mock.calls[0][0];
+    const callArgs = mockUpdateProduct.mutate.mock.calls[0]?.[0];
+    expect(callArgs).toBeDefined();
     expect(callArgs.storeId).toBe('s1');
     expect(callArgs.productId).toBe('p1');
     expect(callArgs.data).toMatchObject({
