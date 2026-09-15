@@ -1,6 +1,6 @@
 import React from 'react';
 
-interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
+export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
   variant?: 'default' | 'secondary' | 'success' | 'warning' | 'danger' | 'info';
   size?: 'sm' | 'default';
 }
