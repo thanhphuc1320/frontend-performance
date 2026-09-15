@@ -21,13 +21,13 @@ describe('Auth/Store/RBAC persistence', () => {
   });
 
   beforeEach(async () => {
-    await client.query('TRUNCATE audit_logs, invitations, store_memberships, stores, email_tokens, sessions, users, product_categories, product_images, product_inventory, product_taggings, product_tags, product_variant_options, product_variants, products, categories CASCADE');
+    await client.query('TRUNCATE audit_logs, invitations, store_memberships, stores, email_tokens, sessions, users, product_categories, product_images, product_inventory, product_taggings, product_tags, product_variant_options, product_variants, products, categories, customers, orders, order_items, order_status_history CASCADE');
   });
 
   it('creates the required schema and fixed role catalog', async () => {
     const tables = await client.query("SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename <> 'schema_migrations' ORDER BY tablename");
     expect(tables.rows.map((row) => row.tablename)).toEqual([
-      'audit_logs', 'categories', 'email_tokens', 'invitations', 'permissions', 'product_categories', 'product_images', 'product_inventory', 'product_taggings', 'product_tags', 'product_variant_options', 'product_variants', 'products', 'role_permissions', 'roles', 'sessions', 'store_memberships', 'stores', 'users',
+      'audit_logs', 'categories', 'customers', 'email_tokens', 'invitations', 'order_items', 'order_status_history', 'orders', 'permissions', 'product_categories', 'product_images', 'product_inventory', 'product_taggings', 'product_tags', 'product_variant_options', 'product_variants', 'products', 'role_permissions', 'roles', 'sessions', 'store_memberships', 'stores', 'users',
     ]);
 
     const roles = await client.query('SELECT code FROM roles ORDER BY code');
