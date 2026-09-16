@@ -74,6 +74,45 @@ export class CustomerService {
     return { customer, recentOrders };
   }
 
+  async update(
+    customerId: string,
+    storeId: string,
+    updates: {
+      name?: string;
+      phone?: string;
+      email?: string | null;
+      address?: string | null;
+      city?: string | null;
+      district?: string | null;
+      ward?: string | null;
+    },
+  ): Promise<Customer> {
+    if (updates.name) {
+      const nameError = validateCustomerName(updates.name);
+      if (nameError) {
+        throw new ApiError(400, 'VALIDATION_ERROR', nameError);
+      }
+    }
+    if (updates.phone) {
+      const phoneError = validatePhone(updates.phone);
+      if (phoneError) {
+        throw new ApiError(400, 'VALIDATION_ERROR', phoneError);
+      }
+    }
+
+    try {
+      return await this.repository.updateCustomer(customerId, storeId, updates);
+    } catch (error) {
+      if (error instanceof RepositoryError) {
+        if (error.code === 'NOT_FOUND') {
+          throw new ApiError(404, 'NOT_FOUND', error.message);
+        }
+        throw new ApiError(error.code === 'CONFLICT' ? 409 : 400, error.code, error.message);
+      }
+      throw error;
+    }
+  }
+
   async delete(customerId: string, storeId: string): Promise<void> {
     try {
       await this.repository.deleteCustomer(customerId, storeId);

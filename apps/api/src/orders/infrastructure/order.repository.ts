@@ -363,6 +363,35 @@ export class OrderRepository {
     });
   }
 
+  async updateOrder(
+    orderId: string,
+    storeId: string,
+    updates: {
+      shippingAddress?: string | null;
+      shippingCity?: string | null;
+      shippingDistrict?: string | null;
+      shippingWard?: string | null;
+      paymentMethod?: PaymentMethod | null;
+      notes?: string | null;
+    },
+  ): Promise<Order> {
+    const result = await this.db.query<OrderRow>(
+      `UPDATE orders SET shipping_address = $3, shipping_city = $4, shipping_district = $5, shipping_ward = $6, payment_method = $7, notes = $8, updated_at = now() WHERE id = $1 AND store_id = $2 RETURNING *`,
+      [
+        orderId,
+        storeId,
+        updates.shippingAddress ?? null,
+        updates.shippingCity ?? null,
+        updates.shippingDistrict ?? null,
+        updates.shippingWard ?? null,
+        updates.paymentMethod ?? null,
+        updates.notes ?? null,
+      ],
+    );
+    if (result.rowCount === 0) throw new RepositoryError('NOT_FOUND', 'Order not found');
+    return this.mapOrder(result.rows[0]!);
+  }
+
   async createCustomer(input: { storeId: string; userId?: string | null; name: string; phone: string; email?: string | null; address?: string | null; city?: string | null; district?: string | null; ward?: string | null }): Promise<Customer> {
     try {
       const result = await this.db.query<CustomerRow>(
@@ -401,6 +430,41 @@ export class OrderRepository {
       [storeId],
     );
     return result.rows.map(this.mapCustomer);
+  }
+
+  async updateCustomer(
+    customerId: string,
+    storeId: string,
+    updates: {
+      name?: string;
+      phone?: string;
+      email?: string | null;
+      address?: string | null;
+      city?: string | null;
+      district?: string | null;
+      ward?: string | null;
+    },
+  ): Promise<Customer> {
+    try {
+      const result = await this.db.query<CustomerRow>(
+        `UPDATE customers SET name = $3, phone = $4, email = $5, address = $6, city = $7, district = $8, ward = $9, updated_at = now() WHERE id = $1 AND store_id = $2 RETURNING *`,
+        [
+          customerId,
+          storeId,
+          updates.name,
+          updates.phone,
+          updates.email ?? null,
+          updates.address ?? null,
+          updates.city ?? null,
+          updates.district ?? null,
+          updates.ward ?? null,
+        ],
+      );
+      if (result.rowCount === 0) throw new RepositoryError('NOT_FOUND', 'Customer not found');
+      return this.mapCustomer(result.rows[0]!);
+    } catch (error) {
+      throw mapConflict(error, 'Customer already exists');
+    }
   }
 
   async deleteCustomer(customerId: string, storeId: string): Promise<void> {

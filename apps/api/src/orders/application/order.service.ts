@@ -102,6 +102,33 @@ export class OrderService {
     }
   }
 
+  async updateOrder(
+    orderId: string,
+    storeId: string,
+    updates: {
+      shippingAddress?: string | null;
+      shippingCity?: string | null;
+      shippingDistrict?: string | null;
+      shippingWard?: string | null;
+      paymentMethod?: import('../domain/order-status').PaymentMethod | null;
+      notes?: string | null;
+    },
+  ): Promise<Order> {
+    const order = await this.repository.findOrderById(orderId, storeId);
+    if (!order) {
+      throw new ApiError(404, 'NOT_FOUND', 'Order not found');
+    }
+
+    try {
+      return await this.repository.updateOrder(orderId, storeId, updates);
+    } catch (error) {
+      if (error instanceof RepositoryError) {
+        throw new ApiError(error.code === 'CONFLICT' ? 409 : 400, error.code, error.message);
+      }
+      throw error;
+    }
+  }
+
   async cancelOrder(
     orderId: string,
     storeId: string,
