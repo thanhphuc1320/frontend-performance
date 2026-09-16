@@ -3,6 +3,7 @@ import { PostgresDatabase } from '../../infrastructure/database.provider';
 import type { Order, OrderItem, OrderStatusHistory, OrderDetail } from '../domain/order';
 import type { Customer } from '../domain/customer';
 import type { OrderStatus, PaymentStatus, PaymentMethod } from '../domain/order-status';
+import { isValidStatusTransition } from '../domain/order-status';
 
 type Database = { query<T>(text: string, values?: readonly unknown[]): Promise<{ rows: T[]; rowCount: number | null }>; };
 
@@ -137,6 +138,10 @@ export class OrderRepository {
   }
 
   private async generateOrderNumber(storeId: string, executor: Database = this.db): Promise<string> {
+    await executor.query(
+      `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`,
+      [storeId],
+    );
     const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     const prefix = `ORD-${dateStr}-`;
     const result = await executor.query<{ order_number: string }>(
@@ -147,7 +152,7 @@ export class OrderRepository {
     if (result.rowCount && result.rowCount > 0) {
       const last = result.rows[0]!.order_number;
       const match = last.match(/-(\d{3})$/);
-      if (match) {
+      if (match && match[1]) {
         nextNum = parseInt(match[1], 10) + 1;
       }
     }
@@ -223,7 +228,7 @@ export class OrderRepository {
     if (!order) return null;
 
     const [customerResult, itemsResult, historyResult] = await Promise.all([
-      this.db.query<CustomerRow>(`SELECT * FROM customers WHERE id = $1`, [order.customerId]),
+      this.db.query<CustomerRow>(`SELECT * FROM customers WHERE id = $1 AND store_id = $2`, [order.customerId, storeId]),
       this.db.query<OrderItemRow>(`SELECT * FROM order_items WHERE order_id = $1`, [orderId]),
       this.db.query<OrderStatusHistoryRow>(`SELECT * FROM order_status_history WHERE order_id = $1 ORDER BY created_at DESC`, [orderId]),
     ]);
@@ -282,11 +287,33 @@ export class OrderRepository {
 
   async updateOrderStatus(orderId: string, storeId: string, status: OrderStatus, notes: string | null, createdBy: string): Promise<Order> {
     return this.transaction(async (executor) => {
+      const currentResult = await executor.query<OrderRow>(
+        `SELECT * FROM orders WHERE id = $1 AND store_id = $2 FOR UPDATE`,
+        [orderId, storeId],
+      );
+      if (currentResult.rowCount === 0) throw new RepositoryError('NOT_FOUND', 'Order not found');
+
+      const currentOrder = this.mapOrder(currentResult.rows[0]!);
+      if (!isValidStatusTransition(currentOrder.status, status)) {
+        throw new RepositoryError('INVALID_STATUS_TRANSITION', `Cannot transition from ${currentOrder.status} to ${status}`);
+      }
+
+      if (status === 'CONFIRMED') {
+        const itemsResult = await executor.query<OrderItemRow>(
+          `SELECT * FROM order_items WHERE order_id = $1`,
+          [orderId],
+        );
+        for (const item of itemsResult.rows) {
+          if (item.variant_id) {
+            await this.deductInventory(item.variant_id, item.quantity, executor);
+          }
+        }
+      }
+
       const result = await executor.query<OrderRow>(
         `UPDATE orders SET status = $3, updated_at = now() WHERE id = $1 AND store_id = $2 RETURNING *`,
         [orderId, storeId, status],
       );
-      if (result.rowCount === 0) throw new RepositoryError('NOT_FOUND', 'Order not found');
 
       await executor.query(
         `INSERT INTO order_status_history (order_id, status, notes, created_by) VALUES ($1, $2, $3, $4)`,
@@ -298,7 +325,40 @@ export class OrderRepository {
   }
 
   async cancelOrder(orderId: string, storeId: string, notes: string | null, createdBy: string): Promise<Order> {
-    return this.updateOrderStatus(orderId, storeId, 'CANCELLED', notes, createdBy);
+    return this.transaction(async (executor) => {
+      const currentResult = await executor.query<OrderRow>(
+        `SELECT * FROM orders WHERE id = $1 AND store_id = $2 FOR UPDATE`,
+        [orderId, storeId],
+      );
+      if (currentResult.rowCount === 0) throw new RepositoryError('NOT_FOUND', 'Order not found');
+
+      const currentOrder = this.mapOrder(currentResult.rows[0]!);
+      if (!isValidStatusTransition(currentOrder.status, 'CANCELLED')) {
+        throw new RepositoryError('INVALID_STATUS_TRANSITION', `Cannot transition from ${currentOrder.status} to CANCELLED`);
+      }
+
+      const itemsResult = await executor.query<OrderItemRow>(
+        `SELECT * FROM order_items WHERE order_id = $1`,
+        [orderId],
+      );
+      for (const item of itemsResult.rows) {
+        if (item.variant_id) {
+          await this.returnInventory(item.variant_id, item.quantity, executor);
+        }
+      }
+
+      const result = await executor.query<OrderRow>(
+        `UPDATE orders SET status = 'CANCELLED', updated_at = now() WHERE id = $1 AND store_id = $2 RETURNING *`,
+        [orderId, storeId],
+      );
+
+      await executor.query(
+        `INSERT INTO order_status_history (order_id, status, notes, created_by) VALUES ($1, $2, $3, $4)`,
+        [orderId, 'CANCELLED', notes ?? null, createdBy],
+      );
+
+      return this.mapOrder(result.rows[0]!);
+    });
   }
 
   async createCustomer(input: { storeId: string; userId?: string | null; name: string; phone: string; email?: string | null; address?: string | null; city?: string | null; district?: string | null; ward?: string | null }): Promise<Customer> {
@@ -343,8 +403,8 @@ export class OrderRepository {
 
   async deleteCustomer(customerId: string, storeId: string): Promise<void> {
     const ordersResult = await this.db.query(
-      `SELECT 1 FROM orders WHERE customer_id = $1 LIMIT 1`,
-      [customerId],
+      `SELECT 1 FROM orders WHERE customer_id = $1 AND store_id = $2 LIMIT 1`,
+      [customerId, storeId],
     );
     if (ordersResult.rowCount !== null && ordersResult.rowCount > 0) {
       throw new RepositoryError('CONFLICT', 'Customer has orders');
@@ -357,8 +417,8 @@ export class OrderRepository {
     if (result.rowCount === 0) throw new RepositoryError('NOT_FOUND', 'Customer not found');
   }
 
-  async deductInventory(variantId: string, quantity: number): Promise<void> {
-    const result = await this.db.query<InventoryRow>(
+  async deductInventory(variantId: string, quantity: number, executor: Database = this.db): Promise<void> {
+    const result = await executor.query<InventoryRow>(
       `UPDATE product_inventory SET quantity = quantity - $2, reserved_quantity = reserved_quantity + $2, updated_at = now()
        WHERE variant_id = $1 AND quantity >= $2
        RETURNING *`,
@@ -369,8 +429,8 @@ export class OrderRepository {
     }
   }
 
-  async returnInventory(variantId: string, quantity: number): Promise<void> {
-    const result = await this.db.query<InventoryRow>(
+  async returnInventory(variantId: string, quantity: number, executor: Database = this.db): Promise<void> {
+    const result = await executor.query<InventoryRow>(
       `UPDATE product_inventory SET quantity = quantity + $2, reserved_quantity = reserved_quantity - $2, updated_at = now()
        WHERE variant_id = $1 AND reserved_quantity >= $2
        RETURNING *`,
