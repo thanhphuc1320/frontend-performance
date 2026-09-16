@@ -337,13 +337,15 @@ export class OrderRepository {
         throw new RepositoryError('INVALID_STATUS_TRANSITION', `Cannot transition from ${currentOrder.status} to CANCELLED`);
       }
 
-      const itemsResult = await executor.query<OrderItemRow>(
-        `SELECT * FROM order_items WHERE order_id = $1`,
-        [orderId],
-      );
-      for (const item of itemsResult.rows) {
-        if (item.variant_id) {
-          await this.returnInventory(item.variant_id, item.quantity, executor);
+      if (currentOrder.status === 'CONFIRMED') {
+        const itemsResult = await executor.query<OrderItemRow>(
+          `SELECT * FROM order_items WHERE order_id = $1`,
+          [orderId],
+        );
+        for (const item of itemsResult.rows) {
+          if (item.variant_id) {
+            await this.returnInventory(item.variant_id, item.quantity, executor);
+          }
         }
       }
 
