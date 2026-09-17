@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { OrderForm } from './order-form';
@@ -247,7 +247,7 @@ describe('OrderForm', () => {
     await waitFor(() => expect(createSpy).toHaveBeenCalled());
     await waitFor(() => expect(onSuccess).toHaveBeenCalled());
 
-    const callData = createSpy.mock.calls[0][1];
+    const callData = createSpy.mock.calls[0]![1];
     expect(callData.customerId).toBe('c1');
     expect(callData.items).toHaveLength(1);
     expect(callData.shippingFee).toBe(10);

@@ -135,7 +135,9 @@ export function OrderList({ storeId }: OrderListProps) {
   }
 
   const orders = data?.items ?? [];
-  const pagination = data?.pagination;
+  const pagination = data
+    ? { page: data.page, limit: data.limit, total: data.total, totalPages: data.totalPages }
+    : undefined;
 
   return (
     <div className="space-y-4">

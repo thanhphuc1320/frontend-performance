@@ -80,7 +80,7 @@ describe('CustomerDetailPage', () => {
 
   it('renders customer details and orders', async () => {
     vi.spyOn(storeApi, 'listStores').mockResolvedValueOnce([{ id: 's1', name: 'Store A' }]);
-    vi.spyOn(orderApi, 'getCustomer').mockResolvedValue(mockCustomer);
+    vi.spyOn(orderApi, 'getCustomer').mockResolvedValue({ customer: mockCustomer, recentOrders: [] });
     vi.spyOn(orderApi, 'listOrders').mockResolvedValue(mockOrders as unknown as Awaited<ReturnType<typeof orderApi.listOrders>>);
 
     render(React.createElement(CustomerDetailPage), { wrapper: createWrapper() });

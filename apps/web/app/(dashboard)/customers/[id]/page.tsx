@@ -15,7 +15,8 @@ export default function CustomerDetailPage() {
   const { data: stores, isLoading: storesLoading } = useStores();
   const storeId = stores?.[0]?.id;
 
-  const { data: customer, isLoading: customerLoading } = useCustomer(storeId ?? '', customerId ?? '');
+  const { data: customerData, isLoading: customerLoading } = useCustomer(storeId ?? '', customerId ?? '');
+  const customer = customerData?.customer;
   const { data: ordersData, isLoading: ordersLoading } = useOrders(storeId ?? '', { customerId });
 
   if (storesLoading || customerLoading || ordersLoading) {

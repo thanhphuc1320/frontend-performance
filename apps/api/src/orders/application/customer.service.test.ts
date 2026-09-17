@@ -3,7 +3,6 @@ import type { OrderRepository } from '../infrastructure/order.repository';
 import type { Customer } from '../domain/customer';
 import type { Order } from '../domain/order';
 import type { OrderStatus } from '../domain/order-status';
-import { ApiError } from '../../http/api-error';
 import { RepositoryError } from '../../persistence/repository-error';
 
 describe('CustomerService', () => {

@@ -82,7 +82,10 @@ const mockOrders = {
       updatedAt: '2024-01-03T00:00:00Z',
     },
   ],
-  pagination: { page: 1, limit: 10, total: 3, totalPages: 1 },
+  page: 1,
+  limit: 10,
+  total: 3,
+  totalPages: 1,
 };
 
 describe('OrderList', () => {
@@ -115,7 +118,10 @@ describe('OrderList', () => {
   it('renders empty state', async () => {
     vi.spyOn(orderApi, 'listOrders').mockResolvedValueOnce({
       items: [],
-      pagination: { page: 1, limit: 10, total: 0, totalPages: 0 },
+      page: 1,
+      limit: 10,
+      total: 0,
+      totalPages: 0,
     } as unknown as Awaited<ReturnType<typeof orderApi.listOrders>>);
     render(React.createElement(OrderList, { storeId: 's1' }), { wrapper: createWrapper() });
     await waitFor(() => expect(screen.getByText('No orders found')).toBeInTheDocument());
@@ -126,7 +132,10 @@ describe('OrderList', () => {
       .mockResolvedValueOnce(mockOrders as unknown as Awaited<ReturnType<typeof orderApi.listOrders>>)
       .mockResolvedValueOnce({
         items: [mockOrders.items[0]],
-        pagination: { page: 1, limit: 10, total: 1, totalPages: 1 },
+        page: 1,
+        limit: 10,
+        total: 1,
+        totalPages: 1,
       } as unknown as Awaited<ReturnType<typeof orderApi.listOrders>>);
 
     render(React.createElement(OrderList, { storeId: 's1' }), { wrapper: createWrapper() });
@@ -143,7 +152,10 @@ describe('OrderList', () => {
       .mockResolvedValueOnce(mockOrders as unknown as Awaited<ReturnType<typeof orderApi.listOrders>>)
       .mockResolvedValueOnce({
         items: [mockOrders.items[0]],
-        pagination: { page: 1, limit: 10, total: 1, totalPages: 1 },
+        page: 1,
+        limit: 10,
+        total: 1,
+        totalPages: 1,
       } as unknown as Awaited<ReturnType<typeof orderApi.listOrders>>);
 
     render(React.createElement(OrderList, { storeId: 's1' }), { wrapper: createWrapper() });
@@ -161,7 +173,10 @@ describe('OrderList', () => {
       .mockResolvedValueOnce(mockOrders as unknown as Awaited<ReturnType<typeof orderApi.listOrders>>)
       .mockResolvedValueOnce({
         items: [mockOrders.items[0]],
-        pagination: { page: 1, limit: 10, total: 1, totalPages: 1 },
+        page: 1,
+        limit: 10,
+        total: 1,
+        totalPages: 1,
       } as unknown as Awaited<ReturnType<typeof orderApi.listOrders>>);
 
     render(React.createElement(OrderList, { storeId: 's1' }), { wrapper: createWrapper() });
@@ -181,11 +196,17 @@ describe('OrderList', () => {
   it('paginates orders', async () => {
     const paginatedData = {
       items: [mockOrders.items[0]],
-      pagination: { page: 1, limit: 1, total: 3, totalPages: 3 },
+      page: 1,
+      limit: 1,
+      total: 3,
+      totalPages: 3,
     };
     const page2Data = {
       items: [mockOrders.items[1]],
-      pagination: { page: 2, limit: 1, total: 3, totalPages: 3 },
+      page: 2,
+      limit: 1,
+      total: 3,
+      totalPages: 3,
     };
 
     const spy = vi.spyOn(orderApi, 'listOrders')

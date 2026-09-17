@@ -3,7 +3,7 @@ import type { OrderRepository, CreateOrderInput, OrderFilters } from '../infrast
 import type { Order, OrderDetail, OrderItem, OrderStatusHistory } from '../domain/order';
 import type { Customer } from '../domain/customer';
 import type { OrderStatus } from '../domain/order-status';
-import { ApiError } from '../../http/api-error';
+
 
 describe('OrderService', () => {
   function setup() {

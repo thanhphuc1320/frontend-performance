@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { Search, Plus, Trash2, X } from 'lucide-react';
 import { useCustomers, useCreateCustomer, useCreateOrder } from '../queries';
 import { useProducts, useProduct } from '../../products/queries';
