@@ -30,24 +30,24 @@ async function postgresChecks() {
       await client.query("INSERT INTO schema_migrations (version) VALUES ('sentinel')");
       sentinelInserted = true;
     }
-    const before = await client.query('SELECT version FROM schema_migrations WHERE version IN ($1, $2, $3, $4, $5) ORDER BY version', ['0001', '0002', '0003', '0004', '0005']);
-    if (before.rowCount !== 5) throw new Error('Auth/Store/RBAC/Product migrations are not recorded exactly once');
+    const before = await client.query('SELECT version FROM schema_migrations WHERE version IN ($1, $2, $3, $4, $5, $6) ORDER BY version', ['0001', '0002', '0003', '0004', '0005', '0006']);
+    if (before.rowCount !== 6) throw new Error('Auth/Store/RBAC/Product/Order migrations are not recorded exactly once');
     const sentinelBefore = await client.query('SELECT count(*)::int AS count FROM schema_migrations WHERE version = $1', ['sentinel']);
     if (sentinelBefore.rows[0].count !== 1) throw new Error('sentinel migration record was not created');
     const tables = await client.query("SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename <> 'schema_migrations'");
-    if (tables.rowCount !== 19) throw new Error('Auth/Store/RBAC/Product schema is incomplete');
+    if (tables.rowCount !== 23) throw new Error('Auth/Store/RBAC/Product/Order schema is incomplete');
     await run('node', ['infra/postgres/migrate.mjs', 'down']);
     const metadataAfter = await client.query("SELECT to_regclass('public.schema_migrations') AS name");
     if (metadataAfter.rows[0].name !== 'schema_migrations') throw new Error('rollback removed schema_migrations');
-    const after = await client.query('SELECT count(*)::int AS count FROM schema_migrations WHERE version IN ($1, $2, $3, $4, $5)', ['0001', '0002', '0003', '0004', '0005']);
-    if (after.rows[0].count !== 0) throw new Error('rollback did not remove the Auth/Store/RBAC/Product migration records');
+    const after = await client.query('SELECT count(*)::int AS count FROM schema_migrations WHERE version IN ($1, $2, $3, $4, $5, $6)', ['0001', '0002', '0003', '0004', '0005', '0006']);
+    if (after.rows[0].count !== 0) throw new Error('rollback did not remove the Auth/Store/RBAC/Product/Order migration records');
     const sentinelAfter = await client.query('SELECT count(*)::int AS count FROM schema_migrations WHERE version = $1', ['sentinel']);
     if (sentinelAfter.rows[0].count !== 1) throw new Error('rollback removed an unrelated migration record');
     const tablesAfter = await client.query("SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename <> 'schema_migrations'");
     if (tablesAfter.rowCount !== 0) throw new Error('business tables exist after rollback');
     await run('node', ['infra/postgres/migrate.mjs', 'up']);
-    const restored = await client.query('SELECT count(*)::int AS count FROM schema_migrations WHERE version IN ($1, $2, $3, $4, $5)', ['0001', '0002', '0003', '0004', '0005']);
-    if (restored.rows[0].count !== 5) throw new Error('Auth/Store/RBAC/Product migrations were not restored');
+    const restored = await client.query('SELECT count(*)::int AS count FROM schema_migrations WHERE version IN ($1, $2, $3, $4, $5, $6)', ['0001', '0002', '0003', '0004', '0005', '0006']);
+    if (restored.rows[0].count !== 6) throw new Error('Auth/Store/RBAC/Product/Order migrations were not restored');
   } finally {
     if (sentinelInserted) {
       await client.query("DELETE FROM schema_migrations WHERE version = 'sentinel'").catch(() => {});
