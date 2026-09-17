@@ -29,7 +29,7 @@ export function CustomerList({ storeId, onEdit }: CustomerListProps) {
   const deleteMutation = useDeleteCustomer();
   const { data: capabilities } = useCapabilities();
 
-  const canManage = capabilities?.permissions.includes('orders.manage') ?? false;
+  const canMerge = capabilities?.permissions.includes('customers.merge') ?? false;
 
   // Debounce search
   useEffect(() => {
@@ -41,11 +41,11 @@ export function CustomerList({ storeId, onEdit }: CustomerListProps) {
 
   const handleDelete = useCallback(
     (customerId: string) => {
-      if (!canManage) return;
+      if (!canMerge) return;
       if (!window.confirm('Are you sure you want to delete this customer?')) return;
       deleteMutation.mutate({ storeId, customerId });
     },
-    [canManage, deleteMutation, storeId]
+    [canMerge, deleteMutation, storeId]
   );
 
   if (isLoading) {
@@ -130,7 +130,7 @@ export function CustomerList({ storeId, onEdit }: CustomerListProps) {
                         : '—'}
                     </TableCell>
                     <TableCell className="text-right">
-                      {canManage && (
+                      {canMerge && (
                         <div className="flex justify-end gap-2">
                           {onEdit && (
                             <Button

@@ -56,7 +56,7 @@ export function OrderList({ storeId }: OrderListProps) {
   const updateStatusMutation = useUpdateOrderStatus();
   const { data: capabilities } = useCapabilities();
 
-  const canManage = capabilities?.permissions.includes('orders.manage') ?? false;
+  const canUpdate = capabilities?.permissions.includes('orders.update') ?? false;
 
   // Debounce search
   useEffect(() => {
@@ -84,10 +84,10 @@ export function OrderList({ storeId }: OrderListProps) {
 
   const handleUpdateStatus = useCallback(
     (orderId: string, status: OrderStatus) => {
-      if (!canManage) return;
+      if (!canUpdate) return;
       updateStatusMutation.mutate({ storeId, orderId, data: { status } });
     },
-    [canManage, updateStatusMutation, storeId]
+    [canUpdate, updateStatusMutation, storeId]
   );
 
   const formatDate = (dateString: string) => {
@@ -216,7 +216,7 @@ export function OrderList({ storeId }: OrderListProps) {
                     </TableCell>
                     <TableCell className="text-text-secondary">{formatDate(order.createdAt)}</TableCell>
                     <TableCell className="text-right">
-                      {canManage && (
+                      {canUpdate && (
                         <select
                           aria-label={`Update status for order ${order.orderNumber}`}
                           value={order.status}

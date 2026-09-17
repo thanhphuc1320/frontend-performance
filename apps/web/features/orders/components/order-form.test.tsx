@@ -73,7 +73,7 @@ const mockProductDetail = {
 describe('OrderForm', () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    vi.spyOn(storeApi, 'getCapabilities').mockResolvedValue({ permissions: ['orders.manage'] });
+    vi.spyOn(storeApi, 'getCapabilities').mockResolvedValue({ permissions: ['orders.update'] });
   });
 
   afterEach(() => {
@@ -307,7 +307,7 @@ describe('OrderForm', () => {
     await waitFor(() => expect(createOrderSpy).toHaveBeenCalled());
   });
 
-  it('disables submit without orders.manage permission', () => {
+  it('disables submit without orders.update permission', () => {
     vi.spyOn(storeApi, 'getCapabilities').mockResolvedValue({ permissions: ['orders.read'] });
     vi.spyOn(orderApi, 'listCustomers').mockResolvedValue([]);
     render(React.createElement(OrderForm, { storeId: 's1' }), { wrapper: createWrapper() });

@@ -49,7 +49,7 @@ const mockCustomers = [
 describe('CustomerList', () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    vi.spyOn(storeApi, 'getCapabilities').mockResolvedValue({ permissions: ['orders.manage'] });
+    vi.spyOn(storeApi, 'getCapabilities').mockResolvedValue({ permissions: ['customers.merge'] });
   });
 
   afterEach(() => {
@@ -150,8 +150,8 @@ describe('CustomerList', () => {
     vi.unstubAllGlobals();
   });
 
-  it('hides actions without orders.manage permission', async () => {
-    vi.spyOn(storeApi, 'getCapabilities').mockResolvedValue({ permissions: ['orders.read'] });
+  it('hides actions without customers.merge permission', async () => {
+    vi.spyOn(storeApi, 'getCapabilities').mockResolvedValue({ permissions: ['customers.read'] });
     vi.spyOn(orderApi, 'listCustomers').mockResolvedValue(mockCustomers as unknown as Awaited<ReturnType<typeof orderApi.listCustomers>>);
 
     render(React.createElement(CustomerList, { storeId: 's1' }), { wrapper: createWrapper() });

@@ -93,7 +93,7 @@ export function OrderForm({ storeId, onSuccess }: OrderFormProps) {
   const { data: productDetailData } = useProduct(storeId, selectedProductId ?? '');
 
   const { data: capabilities } = useCapabilities();
-  const canManage = capabilities?.permissions.includes('orders.manage') ?? false;
+  const canUpdate = capabilities?.permissions.includes('orders.update') ?? false;
 
   const products = productsData?.items ?? [];
   const productDetail = productDetailData
@@ -224,7 +224,7 @@ export function OrderForm({ storeId, onSuccess }: OrderFormProps) {
       e.preventDefault();
       setSubmitError(null);
 
-      if (!canManage) {
+      if (!canUpdate) {
         setSubmitError('You do not have permission to create orders');
         return;
       }
@@ -280,7 +280,7 @@ export function OrderForm({ storeId, onSuccess }: OrderFormProps) {
       }
     },
     [
-      canManage,
+      canUpdate,
       validate,
       selectedCustomer,
       showCreateCustomer,
@@ -738,7 +738,7 @@ export function OrderForm({ storeId, onSuccess }: OrderFormProps) {
         <Button
           type="submit"
           loading={createCustomerMutation.isPending || createOrderMutation.isPending}
-          disabled={!canManage}
+          disabled={!canUpdate}
         >
           Create Order
         </Button>

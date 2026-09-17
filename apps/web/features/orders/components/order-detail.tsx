@@ -26,7 +26,7 @@ const statusOptions: { label: string; value: OrderStatus }[] = [
   { label: 'Refunded', value: 'REFUNDED' },
 ];
 
-const cancelableStatuses: OrderStatus[] = ['PENDING', 'CONFIRMED', 'PROCESSING'];
+const cancelableStatuses: OrderStatus[] = ['PENDING', 'CONFIRMED', 'PROCESSING', 'READY_TO_SHIP'];
 
 export function OrderDetail({ storeId, orderId }: OrderDetailProps) {
   const { data, isLoading, error } = useOrder(storeId, orderId);
@@ -36,25 +36,26 @@ export function OrderDetail({ storeId, orderId }: OrderDetailProps) {
   const [cancelNotes, setCancelNotes] = useState('');
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
-  const canManage = capabilities?.permissions.includes('orders.manage') ?? false;
+  const canUpdate = capabilities?.permissions.includes('orders.update') ?? false;
+  const canCancel = capabilities?.permissions.includes('orders.cancel') ?? false;
 
   const handleStatusChange = useCallback(
     (status: OrderStatus) => {
-      if (!canManage) return;
+      if (!canUpdate) return;
       updateStatusMutation.mutate({ storeId, orderId, data: { status } });
     },
-    [canManage, updateStatusMutation, storeId, orderId]
+    [canUpdate, updateStatusMutation, storeId, orderId]
   );
 
   const handleCancel = useCallback(() => {
-    if (!canManage) return;
+    if (!canCancel) return;
     cancelOrderMutation.mutate(
       { storeId, orderId, notes: cancelNotes || null },
       {
         onSuccess: () => setShowCancelConfirm(false),
       }
     );
-  }, [canManage, cancelOrderMutation, storeId, orderId, cancelNotes]);
+  }, [canCancel, cancelOrderMutation, storeId, orderId, cancelNotes]);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -99,7 +100,7 @@ export function OrderDetail({ storeId, orderId }: OrderDetailProps) {
   }
 
   const { order, customer, items, statusHistory } = data;
-  const canCancel = canManage && cancelableStatuses.includes(order.status);
+  const canCancelOrder = canCancel && cancelableStatuses.includes(order.status);
 
   return (
     <div className="space-y-6">
@@ -115,7 +116,7 @@ export function OrderDetail({ storeId, orderId }: OrderDetailProps) {
               <p className="mt-1 text-sm text-text-muted">Created on {formatDate(order.createdAt)}</p>
             </div>
 
-            {canManage && (
+            {canUpdate && (
               <div className="flex flex-wrap items-center gap-2">
                 <select
                   aria-label="Update order status"
@@ -131,7 +132,7 @@ export function OrderDetail({ storeId, orderId }: OrderDetailProps) {
                   ))}
                 </select>
 
-                {canCancel && (
+                {canCancelOrder && (
                   <>
                     {!showCancelConfirm ? (
                       <Button

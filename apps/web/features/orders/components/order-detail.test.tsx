@@ -80,7 +80,7 @@ const mockOrderDetail = {
 describe('OrderDetail', () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    vi.spyOn(storeApi, 'getCapabilities').mockResolvedValue({ permissions: ['orders.manage'] });
+    vi.spyOn(storeApi, 'getCapabilities').mockResolvedValue({ permissions: ['orders.update', 'orders.cancel'] });
   });
 
   afterEach(() => {
@@ -172,7 +172,7 @@ describe('OrderDetail', () => {
     await waitFor(() => expect(cancelSpy).toHaveBeenCalledWith('s1', 'o1', 'Customer request'));
   });
 
-  it('hides status controls without orders.manage permission', async () => {
+  it('hides status controls without orders.update permission', async () => {
     vi.spyOn(storeApi, 'getCapabilities').mockResolvedValue({ permissions: ['orders.read'] });
     vi.spyOn(orderApi, 'getOrder').mockResolvedValue(mockOrderDetail as unknown as Awaited<ReturnType<typeof orderApi.getOrder>>);
     render(React.createElement(OrderDetail, { storeId: 's1', orderId: 'o1' }), { wrapper: createWrapper() });

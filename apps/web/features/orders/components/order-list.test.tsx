@@ -91,7 +91,7 @@ const mockOrders = {
 describe('OrderList', () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    vi.spyOn(storeApi, 'getCapabilities').mockResolvedValue({ permissions: ['orders.manage'] });
+    vi.spyOn(storeApi, 'getCapabilities').mockResolvedValue({ permissions: ['orders.update'] });
   });
 
   afterEach(() => {
@@ -238,7 +238,7 @@ describe('OrderList', () => {
     await waitFor(() => expect(updateSpy).toHaveBeenCalledWith('s1', 'o1', { status: 'CONFIRMED' }));
   });
 
-  it('hides status update dropdown without orders.manage permission', async () => {
+  it('hides status update dropdown without orders.update permission', async () => {
     vi.spyOn(storeApi, 'getCapabilities').mockResolvedValue({ permissions: ['orders.read'] });
     vi.spyOn(orderApi, 'listOrders').mockResolvedValueOnce(mockOrders as unknown as Awaited<ReturnType<typeof orderApi.listOrders>>);
 

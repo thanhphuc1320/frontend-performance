@@ -34,7 +34,7 @@ export function CustomerForm({ storeId, customer, onSuccess }: CustomerFormProps
   const createMutation = useCreateCustomer();
   const updateMutation = useUpdateCustomer();
   const { data: capabilities } = useCapabilities();
-  const canManage = capabilities?.permissions.includes('orders.manage') ?? false;
+  const canMerge = capabilities?.permissions.includes('customers.merge') ?? false;
 
   const handleChange = useCallback((field: keyof CreateCustomerInput, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value || null }));
@@ -73,7 +73,7 @@ export function CustomerForm({ storeId, customer, onSuccess }: CustomerFormProps
       e.preventDefault();
       setSubmitError(null);
 
-      if (!canManage) {
+      if (!canMerge) {
         setSubmitError('You do not have permission to manage customers');
         return;
       }
@@ -106,7 +106,7 @@ export function CustomerForm({ storeId, customer, onSuccess }: CustomerFormProps
         setSubmitError(err instanceof Error ? err.message : 'Failed to save customer');
       }
     },
-    [canManage, validate, isEdit, customer, storeId, form, updateMutation, createMutation, onSuccess]
+    [      canMerge, validate, isEdit, customer, storeId, form, updateMutation, createMutation, onSuccess]
   );
 
   return (
@@ -187,7 +187,7 @@ export function CustomerForm({ storeId, customer, onSuccess }: CustomerFormProps
         <Button
           type="submit"
           loading={createMutation.isPending || updateMutation.isPending}
-          disabled={!canManage}
+          disabled={!canMerge}
         >
           {isEdit ? 'Update Customer' : 'Create Customer'}
         </Button>
