@@ -90,6 +90,8 @@ export interface OrderFilters {
   status?: OrderStatus;
   customerId?: string;
   search?: string;
+  dateFrom?: string;
+  dateTo?: string;
   page?: number;
   limit?: number;
 }
