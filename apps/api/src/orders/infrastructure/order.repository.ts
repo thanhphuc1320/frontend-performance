@@ -310,6 +310,18 @@ export class OrderRepository {
         }
       }
 
+      if (status === 'REFUNDED') {
+        const itemsResult = await executor.query<OrderItemRow>(
+          `SELECT * FROM order_items WHERE order_id = $1`,
+          [orderId],
+        );
+        for (const item of itemsResult.rows) {
+          if (item.variant_id) {
+            await this.returnInventory(item.variant_id, item.quantity, executor);
+          }
+        }
+      }
+
       const result = await executor.query<OrderRow>(
         `UPDATE orders SET status = $3, updated_at = now() WHERE id = $1 AND store_id = $2 RETURNING *`,
         [orderId, storeId, status],
@@ -337,7 +349,7 @@ export class OrderRepository {
         throw new RepositoryError('INVALID_STATUS_TRANSITION', `Cannot transition from ${currentOrder.status} to CANCELLED`);
       }
 
-      if (currentOrder.status === 'CONFIRMED') {
+      if (['CONFIRMED', 'PROCESSING', 'READY_TO_SHIP'].includes(currentOrder.status)) {
         const itemsResult = await executor.query<OrderItemRow>(
           `SELECT * FROM order_items WHERE order_id = $1`,
           [orderId],
