@@ -1,11 +1,13 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { LoginForm } from '../../../features/auth/components/login-form';
 import { useLogin } from '../../../features/auth/queries';
 import { ApiError } from '../../../features/auth/api';
 
 export default function LoginPage() {
+  const router = useRouter();
   const login = useLogin();
 
   return (
@@ -18,7 +20,16 @@ export default function LoginPage() {
         <p className="text-text-secondary mt-1">Sign in to your account</p>
       </div>
       <LoginForm
-        onSubmit={(data) => login.mutate(data)}
+        onSubmit={(data) =>
+          login.mutate(data, {
+            onSuccess: (result) => {
+              if (data.rememberMe && result.sessionToken) {
+                localStorage.setItem('session_token', result.sessionToken);
+              }
+              router.push('/products');
+            },
+          })
+        }
         loading={login.isPending}
         error={login.error instanceof ApiError ? login.error.message : null}
         errorCode={login.error instanceof ApiError ? login.error.code : null}

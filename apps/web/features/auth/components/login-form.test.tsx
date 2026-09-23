@@ -22,7 +22,7 @@ describe('LoginForm', () => {
     fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'a@b.com' } });
     fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'Password1!' } });
     fireEvent.click(screen.getByRole('button', { name: /sign in/i }));
-    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith({ email: 'a@b.com', password: 'Password1!' }));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith({ email: 'a@b.com', password: 'Password1!', rememberMe: false }));
   });
 
   it('displays generic error', () => {

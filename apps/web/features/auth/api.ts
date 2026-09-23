@@ -26,6 +26,12 @@ async function apiFetch<T>(
     ...((options.headers as Record<string, string>) || {}),
   };
 
+  // Add session token from localStorage if available
+  const sessionToken = typeof window !== 'undefined' ? localStorage.getItem('session_token') : null;
+  if (sessionToken) {
+    headers['x-session-token'] = sessionToken;
+  }
+
   if (!options.skipCsrf) {
     headers['x-csrf-token'] = getCsrfToken();
   }
@@ -58,11 +64,14 @@ export function verifyEmail(token: string): Promise<{ verified: boolean }> {
   return apiFetch('/api/v1/auth/verify-email', { method: 'POST', body: JSON.stringify({ token }) });
 }
 
-export function login(body: { email: string; password: string }): Promise<{ userId: string }> {
+export function login(body: { email: string; password: string; rememberMe?: boolean }): Promise<{ userId: string; sessionToken?: string }> {
   return apiFetch('/api/v1/auth/login', { method: 'POST', body: JSON.stringify(body) });
 }
 
 export function logout(): Promise<{ accepted: true }> {
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem('session_token');
+  }
   return apiFetch('/api/v1/auth/logout', { method: 'POST' });
 }
 
@@ -83,5 +92,10 @@ export function verifyEmailChange(token: string): Promise<{ accepted: boolean }>
 }
 
 export function getSession(): Promise<{ userId?: string }> {
-  return apiFetch('/api/v1/auth/session', { method: 'GET', skipCsrf: true });
+  const token = typeof window !== 'undefined' ? localStorage.getItem('session_token') : null;
+  return apiFetch('/api/v1/auth/session', {
+    method: 'GET',
+    skipCsrf: true,
+    headers: token ? { 'x-session-token': token } : {},
+  });
 }

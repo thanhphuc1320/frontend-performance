@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../..
 import { Alert } from '../../../components/ui/alert';
 
 interface LoginFormProps {
-  onSubmit: (data: { email: string; password: string }) => void | Promise<void>;
+  onSubmit: (data: { email: string; password: string; rememberMe: boolean }) => void | Promise<void>;
   loading?: boolean;
   error?: string | null;
   errorCode?: string | null;
@@ -17,6 +17,7 @@ interface LoginFormProps {
 export function LoginForm({ onSubmit, loading, error, errorCode }: LoginFormProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
 
   function handleSubmit(e: React.FormEvent) {
@@ -30,7 +31,7 @@ export function LoginForm({ onSubmit, loading, error, errorCode }: LoginFormProp
       setValidationError('Password is required');
       return;
     }
-    void onSubmit({ email, password });
+    void onSubmit({ email, password, rememberMe });
   }
 
   const displayError = error ?? validationError;
@@ -64,6 +65,19 @@ export function LoginForm({ onSubmit, loading, error, errorCode }: LoginFormProp
               onChange={(e) => setPassword(e.target.value)}
               disabled={loading}
             />
+          </div>
+          <div className="flex items-center space-x-2">
+            <input
+              id="login-remember-me"
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+              disabled={loading}
+              className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+            />
+            <Label htmlFor="login-remember-me" className="text-sm font-normal">
+              Remember me
+            </Label>
           </div>
           {friendlyError && (
             <Alert variant="danger">{friendlyError}</Alert>
