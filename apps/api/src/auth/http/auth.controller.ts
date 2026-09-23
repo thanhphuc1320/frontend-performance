@@ -16,9 +16,11 @@ import { SESSION_SERVICE } from '../application/session.tokens';
 @Controller('api/v1/auth')
 export class AuthController {
   constructor(
+    @Inject(IdentityService)
     private readonly identity: IdentityService,
     @Inject(SESSION_SERVICE)
     private readonly sessionService: SessionService,
+    @Inject(RecoveryService)
     private readonly recovery: RecoveryService,
     @Inject(PASSWORD_HASHER)
     private readonly passwordHasher: PasswordHasher,
@@ -26,7 +28,8 @@ export class AuthController {
     private readonly identityRepository: IdentityStore,
     @Inject(API_CONFIG)
     private readonly config: Pick<ApiConfig, 'SESSION_COOKIE_NAME' | 'AUTH_LOCKOUT_MAX_ATTEMPTS' | 'AUTH_LOCKOUT_DURATION_SECONDS'>,
-    private readonly auditService?: AuditService,
+    @Inject(AuditService)
+    private readonly auditService: AuditService,
   ) {}
 
   private requestId(req: Request): string | undefined {
@@ -47,7 +50,7 @@ export class AuthController {
 
   @Post('login')
   @HttpCode(200)
-  async login(@Body() body: { email: string; password: string }, @Req() req: Request, @Res({ passthrough: true }) res: Response): Promise<{ data: { userId: string } }> {
+  async login(@Body() body: { email: string; password: string; rememberMe?: boolean }, @Req() req: Request, @Res({ passthrough: true }) res: Response): Promise<{ data: { userId: string; sessionToken?: string } }> {
     const requestId = this.requestId(req);
     if (typeof body?.email !== 'string' || typeof body?.password !== 'string') {
       throw new ApiError(401, 'UNAUTHENTICATED', 'Invalid credentials');
@@ -98,7 +101,7 @@ export class AuthController {
       resourceId: session.sessionId,
       requestId,
     }).catch(() => {});
-    return { data: { userId: user.id } };
+    return { data: { userId: user.id, ...(body.rememberMe ? { sessionToken: session.rawToken } : {}) } };
   }
 
   @Post('logout')
@@ -125,7 +128,7 @@ export class AuthController {
 
   @Get('session')
   async session(@Req() req: Request): Promise<{ data: { userId?: string } }> {
-    const rawToken = req.cookies?.[this.config.SESSION_COOKIE_NAME];
+    const rawToken = req.cookies?.[this.config.SESSION_COOKIE_NAME] || req.headers?.['x-session-token'];
     if (typeof rawToken !== 'string' || !rawToken) {
       return { data: {} };
     }

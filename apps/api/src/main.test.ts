@@ -17,7 +17,7 @@ describe('API bootstrap', () => {
     await assert.rejects(
       bootstrap({ ...validEnvironment, DATABASE_URL: undefined }, async () => {
         createCalls += 1;
-        return { use: () => undefined, listen: async () => undefined };
+        return { use: () => undefined, listen: async () => undefined, enableCors: () => undefined };
       }),
       /DATABASE_URL/,
     );
@@ -33,6 +33,7 @@ describe('API bootstrap', () => {
       createCalls += 1;
       return {
         use: () => undefined,
+        enableCors: () => undefined,
         listen: async (port: number) => {
           listenPort = port;
         },

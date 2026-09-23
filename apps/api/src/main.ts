@@ -8,6 +8,7 @@ import cookieParser from 'cookie-parser';
 type ApiApplication = {
   listen: (port: number) => Promise<unknown>;
   use: (middleware: unknown) => void;
+  enableCors: (options: { origin: string | string[]; credentials: boolean }) => void;
 };
 
 type CreateApplication = () => Promise<ApiApplication>;
@@ -19,6 +20,10 @@ export async function bootstrap(
   const config = loadApiConfig(env);
   const app = await createApplication();
   app.use(cookieParser());
+  app.enableCors({
+    origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
+    credentials: true,
+  });
   await app.listen(config.API_PORT);
 }
 

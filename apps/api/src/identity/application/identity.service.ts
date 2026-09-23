@@ -1,4 +1,5 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { Injectable } from '@nestjs/common';
 import type { ApiConfig } from '@commerce/config';
 import { AuthTokenType } from '../domain/auth-token';
 import { normalizeEmail } from '../domain/email';
@@ -25,6 +26,7 @@ export type IdentityStore = {
 
 const safeResponse = { accepted: true } as const;
 
+@Injectable()
 export class IdentityService {
   constructor(
     @Inject(IDENTITY_REPOSITORY)

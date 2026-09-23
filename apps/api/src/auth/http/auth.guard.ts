@@ -19,7 +19,7 @@ export class AuthGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<Request & { userId?: string; context?: Record<string, unknown> }>();
-    const rawToken = request.cookies?.[this.config.SESSION_COOKIE_NAME];
+    const rawToken = request.cookies?.[this.config.SESSION_COOKIE_NAME] || request.headers?.['x-session-token'];
     if (!rawToken || typeof rawToken !== 'string') {
       throw new ApiError(401, 'UNAUTHENTICATED', 'Authentication required');
     }

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { AuthorizationModule } from '../authorization/authorization.module';
 import { AuditModule } from '../audit/audit.module';
+import { IdentityModule } from '../identity/identity.module';
 import { DATABASE, PostgresDatabase } from '../infrastructure/database.provider';
 import { ProductController } from './http/product.controller';
 import { CategoryController } from './http/category.controller';
@@ -13,7 +14,7 @@ import { ProductRepository } from './infrastructure/product.repository';
 import { PRODUCT_REPOSITORY } from './application/product.tokens';
 
 @Module({
-  imports: [AuthModule, AuthorizationModule, AuditModule],
+  imports: [AuthModule, AuthorizationModule, AuditModule, IdentityModule],
   controllers: [ProductController, CategoryController, TagController],
   providers: [
     {
