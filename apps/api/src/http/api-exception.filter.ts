@@ -10,6 +10,7 @@ export class ApiExceptionFilter implements ExceptionFilter {
     const request = context.getRequest<Request>();
     const response = context.getResponse<Response>();
     const requestId = request.header('x-request-id')?.trim() || randomUUID();
+    console.error('[API ERROR]', request.method, request.url, error);
     const mapped = mapApiError(error, requestId);
     response.setHeader('x-request-id', requestId);
     response.status(mapped.status).json(mapped.body);

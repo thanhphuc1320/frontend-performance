@@ -1,4 +1,4 @@
-import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
+import { CanActivate, ExecutionContext, Injectable, Inject } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { Request } from 'express';
 import { AuthorizationService } from '../application/authorization.service';
@@ -18,7 +18,9 @@ export function RequirePermission(permission: PermissionCode): MethodDecorator {
 @Injectable()
 export class PermissionGuard implements CanActivate {
   constructor(
+    @Inject(Reflector)
     private readonly reflector: Reflector,
+    @Inject(AuthorizationService)
     private readonly authorizationService: AuthorizationService,
   ) {}
 

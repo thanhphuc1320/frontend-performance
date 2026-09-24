@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "dev": "tsx watch src/main.ts",
+    "dev": "ts-node --transpile-only src/main.ts",
     "lint": "eslint .",
     "test": "jest --runInBand",
     "test:integration": "jest --runInBand --testRegex='test/.*\\.integration-spec\\.ts$'",

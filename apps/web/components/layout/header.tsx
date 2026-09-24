@@ -3,14 +3,17 @@
 import React from 'react';
 import { Bell, ChevronDown } from 'lucide-react';
 import { Button } from '../ui/button';
+import { useSession } from '../../features/auth/queries';
+import { useStores } from '../../features/stores/queries';
 
-interface HeaderProps {
-  storeName?: string;
-  userName?: string;
-  userInitials?: string;
-}
+export function Header() {
+  const { data: session } = useSession();
+  const { data: stores } = useStores();
 
-export function Header({ storeName = 'Luma House', userName = 'User', userInitials = 'U' }: HeaderProps) {
+  const storeName = stores?.[0]?.name ?? 'My Store';
+  const userName = session?.userId ? 'Admin' : 'User';
+  const userInitials = userName.charAt(0).toUpperCase();
+
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-white px-6">
       <div className="flex items-center gap-2 text-sm text-text-secondary">
